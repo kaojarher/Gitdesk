@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>GitDesk · macOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<style>
+:root{--mb:calc(38px + env(safe-area-inset-top,0px));--dock:calc(100px + env(safe-area-inset-bottom,0px))}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;user-select:none;-webkit-tap-highlight-color:transparent;
+ font:16px -apple-system,"SF Pro Text","PingFang TC","Microsoft JhengHei",sans-serif;color:#1d1d1f}
+body{background:radial-gradient(at 15% 10%,#ff9a8b,transparent 45%),radial-gradient(at 85% 20%,#a18cd1,transparent 50%),radial-gradient(at 50% 95%,#4facfe,transparent 55%),#1e1b4b}
+button{font:inherit;cursor:pointer}
+#menubar{position:fixed;top:0;left:0;right:0;height:var(--mb);padding:env(safe-area-inset-top,0px) 14px 0;display:flex;align-items:center;justify-content:space-between;
+ background:rgba(255,255,255,.28);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);color:#fff;font-size:16px;z-index:60;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+#menubar b{margin-left:14px}
+#menubar .r{display:flex;gap:12px;align-items:center}
+#gestureStatus{font-size:13px;opacity:.85}
+#widget{position:fixed;left:12px;right:12px;top:calc(var(--mb) + 14px);padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.3);
+ backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.4);color:#fff;cursor:pointer;max-width:420px}
+#widget .big{font-size:34px;font-weight:300}
+#widget .sm{font-size:16px;opacity:.95;margin-top:4px}
+.win{position:fixed;left:2vw;top:calc(var(--mb) + 8px);width:96vw;height:calc(100dvh - var(--mb) - var(--dock) - 12px);display:flex;flex-direction:column;overflow:hidden;
+ background:rgba(250,250,252,.92);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.15);z-index:20}
+.win.max{left:0;top:var(--mb);width:100vw;height:calc(100dvh - var(--mb) - var(--dock) + 8px);border-radius:0}
+.win.hidden{display:none}
+.titlebar{height:50px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;background:rgba(236,236,238,.95);border-bottom:1px solid rgba(0,0,0,.1)}
+.dots{display:flex;gap:12px}
+.dot{width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,0,0,.15);padding:0}
+.dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+.ttl{flex:1;text-align:center;font-weight:600;font-size:16px;margin-right:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbar{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(246,246,248,.95);border-bottom:1px solid rgba(0,0,0,.08)}
+.tbtn{min-width:44px;height:44px;border-radius:10px;border:1px solid rgba(0,0,0,.12);background:#fff;font-size:20px;padding:0 10px}
+.crumbs{flex:1;display:flex;gap:2px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.crumbs button{border:0;background:none;color:#0a64d8;font-size:16px;padding:10px 6px;min-height:44px}
+.crumbs span{color:#999}
+.note{flex:none;background:#fff4d6;color:#7a5a00;padding:8px 12px;font-size:15px}
+.body{flex:1;overflow:auto;padding:14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{display:flex;flex-direction:column;align-items:center;padding:10px 4px;border-radius:12px;min-height:96px;cursor:pointer}
+.tile:active{background:rgba(10,100,216,.15)}
+.tile .ic{font-size:46px;line-height:1.1}
+.tile .nm{font-size:15px;text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.msg{grid-column:1/-1;text-align:center;color:#777;padding:30px 8px;font-size:16px}
+.msg.err{color:#d12f3b}
+textarea.pad{width:100%;height:100%;border:0;outline:0;resize:none;font:16px ui-monospace,Menlo,monospace;background:transparent;color:#222}
+.view3d{flex:1;position:relative;background:#0b1220;overflow:hidden}
+.view3d button{position:absolute;left:12px;bottom:12px;background:#0a84ff;color:#fff;border:0;border-radius:12px;padding:12px 22px;font-size:17px}
+.prev{width:100%;height:100%;object-fit:contain;background:#111}
+.todo-add{display:flex;gap:8px;margin-bottom:12px}
+.todo-add input{flex:1;min-width:0;height:46px;border-radius:10px;border:1px solid rgba(0,0,0,.2);padding:0 12px;font-size:16px;user-select:text}
+.todo-add button{height:46px;border-radius:10px;border:0;background:#0a84ff;color:#fff;padding:0 18px;font-size:16px}
+.todo-g{font-weight:700;color:#666;margin:14px 0 4px;font-size:15px}
+.todo{display:flex;align-items:center;gap:12px;min-height:48px;border-bottom:1px solid rgba(0,0,0,.07)}
+.todo .cb{width:28px;height:28px;border-radius:50%;border:2px solid #aaa;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;background:#fff}
+.todo.done .cb{background:#0a84ff;border-color:#0a84ff}
+.todo .tx{flex:1;font-size:17px;line-height:1.35}
+.todo.done .tx{color:#999;text-decoration:line-through}
+.todo .x{border:0;background:none;color:#c33;font-size:22px;min-width:44px;height:44px}
+#dock{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(8px + env(safe-area-inset-bottom,0px));display:flex;gap:12px;padding:10px 14px;border-radius:28px;
+ background:rgba(255,255,255,.3);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid rgba(255,255,255,.5);z-index:50}
+.di{position:relative;width:58px;height:58px;border-radius:15px;border:0;display:flex;align-items:center;justify-content:center;font-size:32px;
+ background:linear-gradient(#fff,#dfe3ea);box-shadow:0 4px 10px rgba(0,0,0,.3);padding:0}
+.di:active{transform:scale(.9)}
+.di::after{content:"";position:absolute;bottom:-8px;width:6px;height:6px;border-radius:50%;background:#fff;opacity:0}
+.di.run::after{opacity:1}
+#webcam-box{position:fixed;right:8px;bottom:calc(var(--dock) + 4px);width:64px;height:84px;border-radius:10px;overflow:hidden;border:2px solid #5ac8fa;background:#000;z-index:45;opacity:.9}
+#webcam-box video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#virtual-cursor{position:fixed;z-index:80;width:26px;height:26px;border-radius:50%;background:rgba(90,200,250,.7);border:2px solid #fff;pointer-events:none;transform:translate(-50%,-50%);left:50%;top:50%}
+#virtual-cursor.cursor-pinched{background:rgba(255,0,128,.9);box-shadow:0 0 20px #ff0080}
+</style>
+</head>
+<body>
+<div id="virtual-cursor"></div>
+<div id="menubar">
+  <div><span style="font-size:20px"></span><b id="appname">桌面</b></div>
+  <div class="r"><span id="gestureStatus">搜尋手部...</span><span id="clock"></span></div>
+</div>
+<div id="widget" onclick="openApp('remind')">
+  <div class="big" id="wdate"></div>
+  <div class="sm" id="wtodo"></div>
+</div>
+<div id="webcam-box"><video id="webcam" playsinline></video></div>
+<div id="dock"></div>
+
+<script>
+const GITHUB_USER='kaojarher', GH_API='https://api.github.com';
+const APPS={
+  finder:{name:'Finder',icon:'📁'}, '3d':{name:'3D 檢視器',icon:'🧊'},
+  notes:{name:'備忘錄',icon:'📝'}, remind:{name:'提醒事項',icon:'✅'},
+  about:{name:'關於本機',icon:'💻'}, preview:{name:'預覽程式',icon:'🖼️'}
+};
+const DOCK=['finder','3d','notes','remind','about'];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let stack=[], frontKey=null;
+
+/* ---------- 視窗管理 ---------- */
+function mkWin(key,body){
+  const w=document.createElement('div');
+  w.className='win hidden'; w.id='win-'+key; w.dataset.state='closed';
+  w.innerHTML=`<div class="titlebar"><div class="dots">
+    <button class="dot r" aria-label="關閉" onclick="closeWindow('${key}')"></button>
+    <button class="dot y" aria-label="最小化" onclick="minimizeWindow('${key}')"></button>
+    <button class="dot g" aria-label="最大化" onclick="toggleMax('${key}')"></button></div>
+    <div class="ttl" id="ttl-${key}">${APPS[key].name}</div></div>${body}`;
+  w.addEventListener('pointerdown',()=>front(key));
+  document.body.appendChild(w);
+}
+function setState(k,st){const w=$('win-'+k);w.dataset.state=st;w.classList.toggle('hidden',st!=='open');refreshDock();}
+function openApp(k){
+  setState(k,'open'); front(k);
+  if(k==='3d') init3D();
+  if(k==='finder' && !$('github-file-list').dataset.loaded) fetchGitHubRepo();
+  if(k==='remind') renderTodos();
+}
+function openWindow(k){openApp(k)}
+function closeWindow(k){setState(k,'closed');leave(k)}
+function minimizeWindow(k){setState(k,'min');leave(k)}
+function leave(k){stack=stack.filter(x=>x!==k);frontKey=stack[stack.length-1]||null;$('appname').textContent=frontKey?APPS[frontKey].name:'桌面';}
+function front(k){stack=stack.filter(x=>x!==k);stack.push(k);stack.forEach((x,i)=>$('win-'+x).style.zIndex=20+i);frontKey=k;$('appname').textContent=APPS[k].name;}
+function toggleMax(k){$('win-'+k).classList.toggle('max');if(k==='3d')setTimeout(resize3D,60);}
+function refreshDock(){DOCK.concat(['preview']).forEach(k=>{const b=$('dock-'+k);if(b)b.classList.toggle('run',$('win-'+k).dataset.state!=='closed');});}
+function buildDock(){
+  $('dock').innerHTML=DOCK.map(k=>`<button class="di" id="dock-${k}" aria-label="${APPS[k].name}" onclick="openApp('${k}')">${APPS[k].icon}</button>`).join('');
+}
+
+/* ---------- 建立視窗 ---------- */
+mkWin('finder',`<div class="toolbar">
+  <button class="tbtn" onclick="goUpGitHub()" aria-label="上一層">‹</button>
+  <div class="crumbs" id="crumbs"></div>
+  <button class="tbtn" onclick="fetchGitHubRepo()" aria-label="重新整理">↻</button>
+  <button class="tbtn" onclick="setGitHubToken()" aria-label="Token">🔑</button></div>
+  <div id="finder-note"></div><div class="body"><div class="grid" id="github-file-list"></div></div>`);
+mkWin('3d',`<div class="view3d" id="3d-canvas-container"><button onclick="switch3DModel()">切換模型</button></div>`);
+mkWin('notes',`<div class="body"><textarea class="pad" id="notepad-content" readonly>=== GitDesk 使用說明 ===
+
+1. 點 Dock 的 Finder，列出 GitHub 帳號的公開倉庫。
+2. 點倉庫進入，點資料夾繼續往下，上方路徑可直接點選返回。
+3. 文字檔會在這裡開啟，圖片會在預覽程式開啟。
+4. 紅色關閉、黃色最小化、綠色最大化；最小化後點 Dock 圖示可回復。
+5. 提醒事項是本專案的待辦清單，可勾選、新增與刪除。</textarea></div>`);
+mkWin('remind',`<div class="body"><div class="todo-add"><input id="todo-in" placeholder="新增待辦事項" enterkeyhint="done">
+  <button onclick="addTodo()">新增</button></div><div id="todo-list"></div></div>`);
+mkWin('about',`<div class="body" style="line-height:1.8"><div style="font-size:54px;text-align:center"></div>
+  <div style="text-align:center;font-size:22px;font-weight:600">GitDesk</div>
+  <div style="text-align:center;color:#666;margin-bottom:12px">macOS 風格行動版 · 第一階段</div>
+  <div>GitHub 帳號：<b>${GITHUB_USER}</b></div>
+  <div>連線方式：GitHub REST API（未登入每小時 60 次）</div>
+  <div>手勢：MediaPipe Hands，食指移動、拇指與食指捏合點擊</div></div>`);
+mkWin('preview',`<div class="view3d" style="background:#111"><img class="prev" id="prev-img" alt=""></div>`);
+
+/* ---------- GitHub ---------- */
+let currentRepo='', currentPath='', githubToken='';
+try{githubToken=localStorage.getItem('gh_token')||''}catch(e){}
+
+function setGitHubToken(){
+  const t=prompt('輸入 GitHub Personal Access Token（可提高 API 上限並讀取私有倉庫；留空則清除）：',githubToken);
+  if(t===null)return; githubToken=t.trim();
+  try{localStorage.setItem('gh_token',githubToken)}catch(e){}
+  fetchGitHubRepo();
+}
+async function ghFetch(url){
+  const headers={'Accept':'application/vnd.github+json'};
+  if(githubToken)headers['Authorization']=`Bearer ${githubToken}`;
+  let res;
+  try{res=await fetch(url,{headers})}
+  catch(e){const er=new Error('網路連線失敗，請檢查網路，或確認執行環境允許連到 api.github.com');er.status=0;throw er}
+  if(!res.ok){
+    let m=`GitHub API 回應錯誤 (${res.status})`;
+    if((res.status===403||res.status===429)&&res.headers.get('x-ratelimit-remaining')==='0'){
+      const r=res.headers.get('x-ratelimit-reset');
+      m=`API 次數已達上限，將於 ${r?new Date(r*1000).toLocaleTimeString():'稍後'} 重置。可按 🔑 設定 Token 提高上限。`;
+    }else if(res.status===401)m='Token 無效或已過期 (401)，請按 🔑 重新設定。';
+    else if(res.status===403)m='GitHub 拒絕存取 (403)。';
+    else if(res.status===404)m='找不到資源 (404)：倉庫不存在、為私有倉庫（需 Token）或名稱有誤。';
+    const er=new Error(m);er.status=res.status;throw er;
+  }
+  return res.json();
+}
+async function ghGet(url){   // 失敗時改用最近一次成功的快取
+  try{const d=await ghFetch(url);try{localStorage.setItem('ghc:'+url,JSON.stringify(d))}catch(e){}return{d,stale:false};}
+  catch(e){
+    if(e.status!==404&&e.status!==401){let c=null;try{c=JSON.parse(localStorage.getItem('ghc:'+url))}catch(_){}
+      if(c)return{d:c,stale:true,msg:e.message};}
+    throw e;
+  }
+}
+function crumbs(){
+  const parts=[{l:GITHUB_USER,f:()=>{currentRepo='';currentPath=''}}];
+  if(currentRepo)parts.push({l:currentRepo,f:()=>{currentPath=''}});
+  const segs=currentPath?currentPath.split('/'):[];
+  segs.forEach((s,i)=>parts.push({l:s,f:()=>{currentPath=segs.slice(0,i+1).join('/')}}));
+  const box=$('crumbs');box.innerHTML='';
+  parts.forEach((p,i)=>{
+    if(i)box.insertAdjacentHTML('beforeend','<span>›</span>');
+    const b=document.createElement('button');b.textContent=p.l;
+    b.onclick=()=>{p.f();fetchGitHubRepo()};box.appendChild(b);
+  });
+  box.scrollLeft=box.scrollWidth;
+  $('ttl-finder').textContent=parts[parts.length-1].l;
+}
+function goUpGitHub(){
+  if(currentPath)currentPath=currentPath.split('/').slice(0,-1).join('/');
+  else if(currentRepo)currentRepo='';
+  else return;
+  fetchGitHubRepo();
+}
+function tile(c,icon,name,fn,title){
+  const d=document.createElement('div');d.className='tile';
+  d.innerHTML=`<div class="ic">${icon}</div><div class="nm" title="${esc(title||name)}">${esc(name)}</div>`;
+  d.onclick=fn;c.appendChild(d);
+}
+async function fetchGitHubRepo(){
+  const c=$('github-file-list'), note=$('finder-note');
+  c.dataset.loaded='1';crumbs();note.innerHTML='';
+  c.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  try{
+    if(!currentRepo){
+      const {d,stale,msg}=await ghGet(`${GH_API}/users/${GITHUB_USER}/repos?per_page=100&sort=updated`);
+      if(stale)note.innerHTML=`<div class="note">離線或連線失敗，顯示上次快取。${esc(msg)}</div>`;
+      c.innerHTML='';
+      if(!Array.isArray(d)||!d.length){c.innerHTML='<div class="msg">此帳號沒有公開倉庫</div>';return}
+      d.forEach(r=>tile(c,'📁',r.name,()=>{currentRepo=r.name;currentPath='';fetchGitHubRepo()},r.description?`${r.name} - ${r.description}`:r.name));
+      return;
+    }
+    const url=`${GH_API}/repos/${GITHUB_USER}/${encodeURIComponent(currentRepo)}/contents/${currentPath.split('/').filter(Boolean).map(encodeURIComponent).join('/')}`;
+    const r=await ghGet(url);let files=r.d;
+    if(r.stale)note.innerHTML=`<div class="note">離線或連線失敗，顯示上次快取。${esc(r.msg)}</div>`;
+    if(!Array.isArray(files))files=[files];
+    files.sort((a,b)=>a.type===b.type?a.name.localeCompare(b.name):(a.type==='dir'?-1:1));
+    c.innerHTML='';
+    if(!files.length){c.innerHTML='<div class="msg">（空資料夾）</div>';return}
+    files.forEach(f=>{
+      const n=f.name.toLowerCase();
+      const ic=f.type==='dir'?'📁':n.endsWith('.html')?'🌐':IMG.test(n)?'🖼️':TEXT.test(n)?'📄':'📦';
+      tile(c,ic,f.name,()=>handleFileClick(f));
+    });
+  }catch(err){c.innerHTML=`<div class="msg err">讀取 GitHub 失敗：<br>${esc(err.message)}</div>`;}
+}
+const TEXT=/\.(md|txt|json|js|css|csv|yml|yaml|py|log|xml|ts|sh|ini|toml)$/i, IMG=/\.(png|jpe?g|gif|webp|svg)$/i;
+function pagesBase(){
+  return currentRepo.toLowerCase()===`${GITHUB_USER}.github.io`.toLowerCase()
+    ?`https://${GITHUB_USER}.github.io/`:`https://${GITHUB_USER}.github.io/${encodeURIComponent(currentRepo)}/`;
+}
+function handleFileClick(f){
+  const n=f.name;
+  if(f.type==='dir'){currentPath=f.path;fetchGitHubRepo();}
+  else if(TEXT.test(n)){
+    fetch(f.download_url).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
+      .then(t=>{$('ttl-notes').textContent=n;$('notepad-content').value=t;openApp('notes')})
+      .catch(e=>alert('讀取檔案失敗：'+e.message));
+  }else if(IMG.test(n)){
+    $('prev-img').src=f.download_url;$('ttl-preview').textContent=n;openApp('preview');
+  }else if(/\.html?$/i.test(n)){
+    window.open(pagesBase()+f.path.split('/').map(encodeURIComponent).join('/'),'_blank');
+  }else alert(`${n}\n檔案大小：${f.size} bytes`);
+}
+
+/* ---------- 提醒事項（待辦清單） ---------- */
+const DEF=[
+ ['P1','macOS 風格介面（選單列、Dock、紅黃綠按鈕）',1],['P1','Dock 指示燈與視窗切換',1],['P1','視窗最小化與最大化',1],
+ ['P1','檔案預覽：圖片與更多文字格式',1],['P1','麵包屑路徑列',1],['P1','載入提示與離線快取',1],
+ ['P2','設定視窗：桌布、字體大小、Token 管理',0],['P2','備忘錄可編輯並寫回 GitHub',0],['P2','長按圖示選單',0],['P2','PWA：加到主畫面全螢幕開啟',0],
+ ['P3','圖示拖曳排列並記憶位置',0],['P3','通知中心',0],['P3','小工具：計算機、時鐘',0],['P3','3D 檢視器載入 .glb 模型',0],['P3','手勢校正與開關',0]
+];
+let todos=(()=>{try{const s=JSON.parse(localStorage.getItem('todo_v1'));if(Array.isArray(s))return s}catch(e){}
+  return DEF.map(([g,t,d],i)=>({id:i,g,t,d}))})();
+function saveTodos(){try{localStorage.setItem('todo_v1',JSON.stringify(todos))}catch(e){}renderWidget();}
+function renderWidget(){
+  const n=todos.filter(t=>!t.d).length;
+  $('wtodo').textContent=`✅ 待辦事項：未完成 ${n} 項（共 ${todos.length} 項）`;
+}
+function renderTodos(){
+  const box=$('todo-list');box.innerHTML='';
+  ['P1','P2','P3','自訂'].forEach(g=>{
+    const items=todos.filter(t=>t.g===g);if(!items.length)return;
+    box.insertAdjacentHTML('beforeend',`<div class="todo-g">${g==='自訂'?'自訂':g+(g==='P1'?'（第一階段）':g==='P2'?'（第二階段）':'（第三階段）')}　${items.filter(t=>t.d).length}/${items.length}</div>`);
+    items.forEach(t=>{
+      const r=document.createElement('div');r.className='todo'+(t.d?' done':'');
+      r.innerHTML=`<div class="cb">${t.d?'✓':''}</div><div class="tx">${esc(t.t)}</div><button class="x" aria-label="刪除">×</button>`;
+      r.querySelector('.cb').onclick=r.querySelector('.tx').onclick=()=>{t.d=t.d?0:1;saveTodos();renderTodos()};
+      r.querySelector('.x').onclick=()=>{todos=todos.filter(x=>x!==t);saveTodos();renderTodos()};
+      box.appendChild(r);
+    });
+  });
+}
+function addTodo(){
+  const i=$('todo-in'),v=i.value.trim();if(!v)return;
+  todos.push({id:Date.now(),g:'自訂',t:v,d:0});i.value='';saveTodos();renderTodos();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement===$('todo-in'))addTodo()});
+
+/* ---------- Three.js ---------- */
+let scene,camera,renderer,holoMesh,modelType=0,isPinched=false,lastPinch=false;
+function init3D(){
+  if(renderer){resize3D();return}
+  const c=$('3d-canvas-container');
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(50,c.clientWidth/c.clientHeight,.1,1000);camera.position.z=4;
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setSize(c.clientWidth,c.clientHeight);c.insertBefore(renderer.domElement,c.firstChild);
+  const l=new THREE.DirectionalLight(0xffffff,1);l.position.set(2,2,5);scene.add(l);scene.add(new THREE.AmbientLight(0x404040,2));
+  createModel();(function loop(){requestAnimationFrame(loop);if(holoMesh&&!isPinched)holoMesh.rotation.y+=.01;renderer.render(scene,camera)})();
+}
+function resize3D(){
+  if(!renderer)return;const c=$('3d-canvas-container');
+  renderer.setSize(c.clientWidth,c.clientHeight);camera.aspect=c.clientWidth/c.clientHeight;camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize3D);
+function createModel(){
+  if(holoMesh)scene.remove(holoMesh);
+  const g=modelType===0?new THREE.IcosahedronGeometry(1.2,1):modelType===1?new THREE.TorusKnotGeometry(.8,.3,100,16):new THREE.BoxGeometry(1.5,1.5,1.5);
+  holoMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x00ffff,wireframe:true,emissive:0x003366}));scene.add(holoMesh);
+}
+function switch3DModel(){modelType=(modelType+1)%3;createModel()}
+
+/* ---------- 手勢控制 ---------- */
+function initCamera(){
+  const v=$('webcam');
+  const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.6,minTrackingConfidence:.6});
+  hands.onResults(onHand);
+  new Camera(v,{onFrame:async()=>{await hands.send({image:v})},width:320,height:240,facingMode:'user'}).start();
+}
+function onHand(r){
+  const cur=$('virtual-cursor'),st=$('gestureStatus');
+  if(!r.multiHandLandmarks||!r.multiHandLandmarks.length){st.textContent='搜尋手部...';cur.classList.remove('cursor-pinched');return}
+  st.textContent='手指控制中';
+  const L=r.multiHandLandmarks[0],i=L[8],t=L[4];
+  const x=(1-i.x)*innerWidth,y=i.y*innerHeight;cur.style.left=x+'px';cur.style.top=y+'px';
+  isPinched=Math.hypot(i.x-t.x,i.y-t.y)<.08;
+  if(isPinched){cur.classList.add('cursor-pinched');
+    if(!lastPinch){const el=document.elementFromPoint(x,y);if(el)el.click()}
+    if(holoMesh){holoMesh.rotation.y=(x/innerWidth-.5)*5;holoMesh.rotation.x=(y/innerHeight-.5)*5}
+  }else cur.classList.remove('cursor-pinched');
+  lastPinch=isPinched;
+}
+
+/* ---------- 時鐘與啟動 ---------- */
+function tick(){
+  const n=new Date();
+  $('clock').textContent=n.toLocaleString('zh-TW',{month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+  $('wdate').textContent=n.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+tick();setInterval(tick,1000);
+buildDock();renderWidget();
+window.onload=()=>{try{initCamera()}catch(e){$('gestureStatus').textContent='相機無法啟用';console.warn(e)}};
+</script>
+</body>
+</html>

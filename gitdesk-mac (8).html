@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>GitDesk · macOS</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#1e1b4b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<style>
+:root{--mb:calc(38px + env(safe-area-inset-top,0px));--dock:calc(100px + env(safe-area-inset-bottom,0px))}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;user-select:none;-webkit-tap-highlight-color:transparent;
+ font:16px -apple-system,"SF Pro Text","PingFang TC","Microsoft JhengHei",sans-serif;color:#1d1d1f}
+body{background:radial-gradient(at 15% 10%,#ff9a8b,transparent 45%),radial-gradient(at 85% 20%,#a18cd1,transparent 50%),radial-gradient(at 50% 95%,#4facfe,transparent 55%),#1e1b4b}
+button{font:inherit;cursor:pointer}
+#menubar{position:fixed;top:0;left:0;right:0;height:var(--mb);padding:env(safe-area-inset-top,0px) 14px 0;display:flex;align-items:center;justify-content:space-between;
+ background:rgba(255,255,255,.28);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);color:#fff;font-size:16px;z-index:60;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+#menubar b{margin-left:14px}
+#menubar .r{display:flex;gap:12px;align-items:center}
+#gestureStatus{font-size:14px;opacity:.9;padding:10px 4px;cursor:pointer}
+#calib{display:none;position:fixed;left:12px;right:12px;top:calc(var(--mb) + 10px);z-index:90;padding:14px;border-radius:16px;text-align:center;font-size:17px;line-height:1.5;background:rgba(0,0,0,.72);color:#fff;pointer-events:none}
+#widget{position:fixed;left:12px;right:12px;top:calc(var(--mb) + 14px);padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.3);
+ backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.4);color:#fff;cursor:pointer;max-width:420px}
+#widget .big{font-size:34px;font-weight:300}
+#widget .sm{font-size:16px;opacity:.95;margin-top:4px}
+.win{position:fixed;left:2vw;top:calc(var(--mb) + 8px);width:96vw;height:calc(100dvh - var(--mb) - var(--dock) - 12px);display:flex;flex-direction:column;overflow:hidden;
+ background:rgba(250,250,252,.92);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.45),0 0 0 1px rgba(0,0,0,.15);z-index:20}
+.win.max{left:0;top:var(--mb);width:100vw;height:calc(100dvh - var(--mb) - var(--dock) + 8px);border-radius:0}
+.win.hidden{display:none}
+.titlebar{height:50px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;background:rgba(236,236,238,.95);border-bottom:1px solid rgba(0,0,0,.1)}
+.dots{display:flex;gap:12px}
+.dot{width:26px;height:26px;border-radius:50%;border:1px solid rgba(0,0,0,.15);padding:0}
+.dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+.ttl{flex:1;text-align:center;font-weight:600;font-size:16px;margin-right:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbar{flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(246,246,248,.95);border-bottom:1px solid rgba(0,0,0,.08)}
+.tbtn{min-width:44px;height:44px;border-radius:10px;border:1px solid rgba(0,0,0,.12);background:#fff;font-size:20px;padding:0 10px}
+.crumbs{flex:1;display:flex;gap:2px;align-items:center;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.crumbs button{border:0;background:none;color:#0a64d8;font-size:16px;padding:10px 6px;min-height:44px}
+.crumbs span{color:#999}
+.note{flex:none;background:#fff4d6;color:#7a5a00;padding:8px 12px;font-size:15px}
+.body{flex:1;overflow:auto;padding:14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{display:flex;flex-direction:column;align-items:center;padding:10px 4px;border-radius:12px;min-height:96px;cursor:pointer}
+.tile:active{background:rgba(10,100,216,.15)}
+.tile .ic{font-size:46px;line-height:1.1}
+.tile .nm{font-size:calc(var(--fs,16px) - 1px);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.msg{grid-column:1/-1;text-align:center;color:#777;padding:30px 8px;font-size:16px}
+.msg.err{color:#d12f3b}
+textarea.pad{width:100%;height:100%;border:0;outline:0;resize:none;font:var(--fs,16px) ui-monospace,Menlo,monospace;background:transparent;color:#222}
+.view3d{flex:1;position:relative;background:#0b1220;overflow:hidden}
+.view3d button{position:absolute;left:12px;bottom:12px;background:#0a84ff;color:#fff;border:0;border-radius:12px;padding:12px 22px;font-size:17px}
+.prev{width:100%;height:100%;object-fit:contain;background:#111}
+.todo-add{display:flex;gap:8px;margin-bottom:12px}
+.todo-add input{flex:1;min-width:0;height:46px;border-radius:10px;border:1px solid rgba(0,0,0,.2);padding:0 12px;font-size:16px;user-select:text}
+.todo-add button{height:46px;border-radius:10px;border:0;background:#0a84ff;color:#fff;padding:0 18px;font-size:16px}
+.todo-g{font-weight:700;color:#666;margin:14px 0 4px;font-size:15px}
+.todo{display:flex;align-items:center;gap:12px;min-height:48px;border-bottom:1px solid rgba(0,0,0,.07)}
+.todo .cb{width:28px;height:28px;border-radius:50%;border:2px solid #aaa;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;background:#fff}
+.todo.done .cb{background:#0a84ff;border-color:#0a84ff}
+.todo .tx{flex:1;font-size:calc(var(--fs,16px) + 1px);line-height:1.35}
+.todo.done .tx{color:#999;text-decoration:line-through}
+.todo .x{border:0;background:none;color:#c33;font-size:22px;min-width:44px;height:44px}
+#dock{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(8px + env(safe-area-inset-bottom,0px));display:flex;gap:12px;padding:10px 14px;border-radius:28px;
+ background:rgba(255,255,255,.3);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);border:1px solid rgba(255,255,255,.5);z-index:50}
+.di{touch-action:none;position:relative;width:58px;height:58px;border-radius:15px;border:0;display:flex;align-items:center;justify-content:center;font-size:32px;
+ background:linear-gradient(#fff,#dfe3ea);box-shadow:0 4px 10px rgba(0,0,0,.3);padding:0}
+.di:active{transform:scale(.9)}
+.di::after{content:"";position:absolute;bottom:-8px;width:6px;height:6px;border-radius:50%;background:#fff;opacity:0}
+.di.run::after{opacity:1}
+#webcam-box{position:fixed;right:8px;bottom:calc(var(--dock) + 4px);width:64px;height:84px;border-radius:10px;overflow:hidden;border:2px solid #5ac8fa;background:#000;z-index:45;opacity:.9}
+#webcam-box video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.tabbtn{flex:1;height:44px;border-radius:10px;border:1px solid rgba(0,0,0,.12);background:#fff;font-size:16px}
+.tabbtn.on{background:#0a84ff;color:#fff}
+.calc-d{background:#111;color:#fff;border-radius:12px;padding:14px;text-align:right;font-size:30px;min-height:84px;overflow:hidden;word-break:break-all}
+.calc-g{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.calc-g button{height:60px;border-radius:12px;border:0;background:#e5e5ea;font-size:24px}
+.calc-g button.op{background:#ff9f0a;color:#fff}
+.wcr{display:flex;justify-content:space-between;align-items:center;padding:14px 4px;border-bottom:1px solid rgba(0,0,0,.08);font-size:20px}
+#nc{display:none;position:fixed;z-index:70;top:calc(var(--mb) + 6px);right:8px;width:min(92vw,380px);max-height:60dvh;overflow:auto;padding:10px;border-radius:16px;background:rgba(250,250,252,.96);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);box-shadow:0 16px 40px rgba(0,0,0,.4)}
+.ncH{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ncH button{border:0;background:none;color:#0a64d8;font-size:16px;min-height:44px}
+.nci{padding:10px 4px;border-bottom:1px solid rgba(0,0,0,.07)}.nci small{color:#888}
+#badge{position:absolute;top:2px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#ff3b30;font:11px/16px sans-serif;text-align:center;font-style:normal;display:none}
+#ctx{max-height:70dvh;overflow:auto}
+.hrow{display:flex;flex-direction:column;gap:4px;padding:12px 4px;border-bottom:1px solid rgba(0,0,0,.08);cursor:pointer}
+.hrow small{color:#777;font-size:14px}
+.btn2{height:46px;border-radius:10px;border:0;background:#0a84ff;color:#fff;padding:0 18px;font-size:16px;margin-bottom:10px}
+.md{font-size:var(--fs,16px);line-height:1.6;user-select:text;word-break:break-word}
+.md h1{font-size:1.5em;margin:.6em 0 .3em}.md h2{font-size:1.3em;margin:.6em 0 .3em}.md h3,.md h4{font-size:1.1em;margin:.5em 0 .2em}
+.md pre{background:#f1f1f4;padding:10px;border-radius:8px;overflow:auto;font-size:14px;margin:8px 0}
+.md code{background:#ececf0;padding:1px 5px;border-radius:5px;font-size:.92em}.md pre code{background:none;padding:0}
+.md blockquote{border-left:4px solid #ccc;margin:6px 0;padding-left:10px;color:#555}
+.md li{margin-left:22px;list-style:disc}.md img{max-width:100%}.md a{color:#0a64d8}
+.rd-h{font-weight:700;margin:18px 0 8px;padding-top:12px;border-top:1px solid rgba(0,0,0,.1)}
+.fs{flex:none;margin:8px 10px 0;height:44px;border-radius:10px;border:1px solid rgba(0,0,0,.2);padding:0 12px;font-size:16px;user-select:text}
+.fh{font-weight:600;margin:12px 0 4px;word-break:break-all}
+pre.diff{background:#fafafa;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:8px;overflow:auto;font-size:13px;margin:0}
+pre.diff span{display:block;white-space:pre}pre.diff .ad{background:#e6ffec}pre.diff .rm{background:#ffebe9}
+#win-hub .toolbar{overflow-x:auto}#win-hub .tabbtn{flex:0 0 auto;padding:0 18px}
+pre.hl{margin:0;overflow:auto;font-size:14px;border-radius:8px;background:#fafafa}pre.hl code{white-space:pre}
+.note.info{background:#e8f1ff;color:#0a4aa8}
+@media(max-width:430px){#menubar .r{gap:6px}#clock{font-size:14px}#gestureStatus{font-size:12px}}
+@media(max-width:430px){.di{width:50px;height:50px;font-size:28px}#dock{gap:8px;padding:8px 10px}}
+#ctx{position:fixed;z-index:70;min-width:210px;display:none;padding:6px;border-radius:14px;background:rgba(255,255,255,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 12px 36px rgba(0,0,0,.4)}
+#ctx button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 14px;min-height:48px;font-size:17px;border-radius:9px}
+#ctx button:active{background:rgba(10,132,255,.15)}
+.sec{font-weight:700;color:#666;margin:6px 0 10px}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.chip{height:64px;border-radius:12px;border:3px solid transparent;color:#fff;font-size:15px;text-shadow:0 1px 3px rgba(0,0,0,.6);padding:0}
+.chip.on{border-color:#0a84ff}
+.srow{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.srow .btn{height:46px;border-radius:10px;border:1px solid rgba(0,0,0,.15);background:#fff;padding:0 16px;font-size:16px}
+#virtual-cursor{position:fixed;z-index:80;width:26px;height:26px;border-radius:50%;background:rgba(90,200,250,.7);border:2px solid #fff;pointer-events:none;transform:translate(-50%,-50%);left:50%;top:50%}
+#virtual-cursor.cursor-pinched{background:rgba(255,0,128,.9);box-shadow:0 0 20px #ff0080}
+</style>
+</head>
+<body>
+<div id="virtual-cursor"></div>
+<div id="menubar">
+  <div><span onclick="openApp('about')" style="font-size:20px;padding:10px 4px;cursor:pointer"></span><b id="appname">桌面</b></div>
+  <div class="r"><span id="bell" onclick="toggleNC()" style="position:relative;padding:10px 4px;cursor:pointer">🔔<i id="badge"></i></span><span id="gestureStatus" onclick="setGesture(!cfg.gOn)">✋ 搜尋手部...</span><span id="clock"></span></div>
+</div>
+<div id="widget" onclick="openApp('remind')">
+  <div class="big" id="wdate"></div>
+  <div class="sm" id="wtodo"></div>
+</div>
+<div id="calib"></div>
+<div id="nc"></div>
+<div id="webcam-box"><video id="webcam" playsinline></video></div>
+<div id="dock"></div>
+
+<script>
+let GITHUB_USER='kaojarher';const GH_API='https://api.github.com';
+const APPS={
+  finder:{name:'Finder',icon:'📁'}, '3d':{name:'3D 檢視器',icon:'🧊'},
+  notes:{name:'備忘錄',icon:'📝'}, remind:{name:'提醒事項',icon:'✅'},
+  about:{name:'關於本機',icon:'💻'}, settings:{name:'系統設定',icon:'⚙️'}, tools:{name:'小工具',icon:'🧰'}, hub:{name:'GitHub',icon:'🐙'}, preview:{name:'預覽程式',icon:'🖼️'}
+};
+let DOCK=['finder','3d','notes','remind','tools','settings'];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let stack=[], frontKey=null;
+
+/* ---------- 視窗管理 ---------- */
+function mkWin(key,body){
+  const w=document.createElement('div');
+  w.className='win hidden'; w.id='win-'+key; w.dataset.state='closed';
+  w.innerHTML=`<div class="titlebar"><div class="dots">
+    <button class="dot r" aria-label="關閉" onclick="closeWindow('${key}')"></button>
+    <button class="dot y" aria-label="最小化" onclick="minimizeWindow('${key}')"></button>
+    <button class="dot g" aria-label="最大化" onclick="toggleMax('${key}')"></button></div>
+    <div class="ttl" id="ttl-${key}">${APPS[key].name}</div></div>${body}`;
+  w.addEventListener('pointerdown',()=>front(key));
+  document.body.appendChild(w);
+}
+function setState(k,st){const w=$('win-'+k);w.dataset.state=st;w.classList.toggle('hidden',st!=='open');refreshDock();}
+function openApp(k){
+  setState(k,'open'); front(k);
+  if(k==='3d') init3D();
+  if(k==='finder' && !$('github-file-list').dataset.loaded) fetchGitHubRepo();
+  if(k==='remind') renderTodos();
+  if(k==='settings') renderSettings();
+  if(k==='tools') toolTab(tTab);
+}
+function openWindow(k){openApp(k)}
+function closeWindow(k){setState(k,'closed');leave(k)}
+function minimizeWindow(k){setState(k,'min');leave(k)}
+function leave(k){stack=stack.filter(x=>x!==k);frontKey=stack[stack.length-1]||null;$('appname').textContent=frontKey?APPS[frontKey].name:'桌面';}
+function front(k){stack=stack.filter(x=>x!==k);stack.push(k);stack.forEach((x,i)=>$('win-'+x).style.zIndex=20+i);frontKey=k;$('appname').textContent=APPS[k].name;}
+function toggleMax(k){$('win-'+k).classList.toggle('max');if(k==='3d')setTimeout(resize3D,60);}
+function refreshDock(){DOCK.concat(['preview']).forEach(k=>{const b=$('dock-'+k);if(b)b.classList.toggle('run',$('win-'+k).dataset.state!=='closed');});}
+let dragged=false;
+function dockTap(k){if(dragged){dragged=false;return}openApp(k)}
+function buildDock(){
+  const d=$('dock');
+  d.innerHTML=DOCK.map(k=>`<button class="di" id="dock-${k}" aria-label="${APPS[k].name}" onclick="dockTap('${k}')">${APPS[k].icon}</button>`).join('');
+  d.querySelectorAll('.di').forEach(b=>{
+    let x0=null;
+    b.addEventListener('pointerdown',e=>{x0=e.clientX;dragged=false;try{b.setPointerCapture(e.pointerId)}catch(_){}});
+    b.addEventListener('pointermove',e=>{
+      if(x0===null)return;const dx=e.clientX-x0;
+      if(Math.abs(dx)>12){dragged=true;b.style.transform=`translateX(${dx}px) scale(1.15)`;b.style.zIndex=5}
+    });
+    const end=e=>{
+      if(x0===null)return;x0=null;b.style.transform='';b.style.zIndex='';
+      if(dragged){
+        const items=[...d.children],k=b.id.slice(5);
+        let to=items.findIndex(it=>e.clientX<it.getBoundingClientRect().right);if(to<0)to=items.length-1;
+        DOCK.splice(DOCK.indexOf(k),1);DOCK.splice(to,0,k);
+        cfg.dock=DOCK.slice();applyCfg();buildDock();
+        setTimeout(()=>{dragged=false},80);
+      }
+    };
+    b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);
+  });
+  refreshDock();
+}
+
+/* ---------- 建立視窗 ---------- */
+mkWin('finder',`<div class="toolbar">
+  <button class="tbtn" onclick="goUpGitHub()" aria-label="上一層">‹</button>
+  <div class="crumbs" id="crumbs"></div>
+  <button class="tbtn" onclick="fetchGitHubRepo()" aria-label="重新整理">↻</button>
+  <button class="tbtn" onclick="moreMenu(event)" aria-label="更多">⋯</button></div>
+  <input type="file" id="upl" style="display:none" onchange="uploadFile(this)"><input id="fsearch" class="fs" placeholder="🔍 篩選目前清單" oninput="filterTiles(this.value)"><div id="finder-note"></div><div class="body"><div class="grid" id="github-file-list"></div><div id="readme"></div></div>`);
+mkWin('3d',`<div class="view3d" id="3d-canvas-container"><button onclick="switch3DModel()">切換模型</button></div>`);
+mkWin('notes',`<div class="toolbar"><div id="note-info" style="flex:1;min-width:0;font-size:15px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">本機備忘錄</div><button class="tbtn" onclick="toggleMd()" aria-label="Markdown 預覽">👁</button><button class="tbtn" onclick="saveNote()">💾 儲存</button></div><div class="body"><textarea class="pad" id="notepad-content" style="user-select:text">=== GitDesk 使用說明 ===
+
+1. 點 Dock 的 Finder，列出 GitHub 帳號的公開倉庫。
+2. 點倉庫進入，點資料夾繼續往下，上方路徑可直接點選返回。
+3. 文字檔會在這裡開啟，圖片會在預覽程式開啟。
+4. 紅色關閉、黃色最小化、綠色最大化；最小化後點 Dock 圖示可回復。
+5. 提醒事項是本專案的待辦清單，可勾選、新增與刪除。
+6. 文字檔可直接編輯，按儲存寫回 GitHub（需 Token）。長按圖示開啟選單。</textarea><div class="md" id="note-md" style="display:none"></div></div>`);
+mkWin('remind',`<div class="body"><div class="todo-add"><input id="todo-in" placeholder="新增待辦事項" enterkeyhint="done">
+  <button onclick="addTodo()">新增</button></div><div id="todo-list"></div></div>`);
+mkWin('about',`<div class="body" style="line-height:1.8"><div style="font-size:54px;text-align:center"></div>
+  <div style="text-align:center;font-size:22px;font-weight:600">GitDesk</div>
+  <div style="text-align:center;color:#666;margin-bottom:12px">macOS 風格行動版 · 第一階段</div>
+  <div>GitHub 帳號：<b>${GITHUB_USER}</b></div>
+  <div>連線方式：GitHub REST API（未登入每小時 60 次）</div>
+  <div>手勢：MediaPipe Hands，食指移動、拇指與食指捏合點擊</div></div>`);
+mkWin('preview',`<div class="view3d" style="background:#111"><img class="prev" id="prev-img" alt=""></div>`);
+
+mkWin('tools',`<div class="toolbar"><button class="tabbtn" id="tb-calc" onclick="toolTab('calc')">🧮 計算機</button><button class="tabbtn" id="tb-clock" onclick="toolTab('clock')">🕐 世界時鐘</button></div><div class="body" id="tool-body"></div>`);
+mkWin('hub',`<div class="toolbar"><button class="tabbtn" id="hb-issues" onclick="renderHub('issues')">Issues</button><button class="tabbtn" id="hb-pulls" onclick="renderHub('pulls')">PR</button><button class="tabbtn" id="hb-commits" onclick="renderHub('commits')">提交</button><button class="tabbtn" id="hb-runs" onclick="renderHub('runs')">CI</button><button class="tabbtn" id="hb-releases" onclick="renderHub('releases')">版本</button></div><div class="body" id="hub-body"></div>`);
+mkWin('settings',`<div class="body" id="set-body"></div>`);
+const WALLS=[['晚霞','radial-gradient(at 15% 10%,#ff9a8b,transparent 45%),radial-gradient(at 85% 20%,#a18cd1,transparent 50%),radial-gradient(at 50% 95%,#4facfe,transparent 55%),#1e1b4b'],
+ ['深海','linear-gradient(160deg,#0f2027,#203a43,#2c5364)'],['森林','linear-gradient(160deg,#134e5e,#71b280)'],['夜空','linear-gradient(160deg,#0f0c29,#302b63,#24243e)']];
+let cfg={wp:0,fs:16,gOn:true,pt:0.08,sm:30,cal:null};
+try{Object.assign(cfg,JSON.parse(localStorage.getItem('gd_cfg')||'{}'))}catch(e){}
+function applyCfg(){
+  document.body.style.background=WALLS[cfg.wp][1];
+  document.documentElement.style.setProperty('--fs',cfg.fs+'px');
+  try{localStorage.setItem('gd_cfg',JSON.stringify(cfg))}catch(e){}
+}
+function setWp(i){cfg.wp=i;applyCfg();renderSettings()}
+function setFs(v){cfg.fs=+v;applyCfg();$('fs-val').textContent=v+'px'}
+function setPt(v){cfg.pt=+v;applyCfg();$('pt-val').textContent=(+v).toFixed(2)}
+function setSm(v){cfg.sm=+v;applyCfg();$('sm-val').textContent=v+'%'}
+function resetCalib(){cfg.cal=null;applyCfg();renderSettings()}
+let calib=null;
+function startCalib(){
+  if(calib)return;
+  if(!cfg.gOn)setGesture(true);
+  calib={x0:1,x1:0,y0:1,y1:0,n:0,t:Date.now()};
+  const b=$('calib');b.style.display='block';
+  const iv=setInterval(()=>{
+    const left=Math.ceil(8-(Date.now()-calib.t)/1000);
+    if(left<=0){clearInterval(iv);endCalib();return}
+    b.innerHTML=`🖐 校正中，剩 ${left} 秒<br>食指移到畫面最左、最右、最上、最下`;
+  },200);
+}
+function endCalib(){
+  const c=calib,b=$('calib');calib=null;
+  const dx=c.x1-c.x0,dy=c.y1-c.y0;
+  if(c.n>10&&dx>.2&&dy>.2){
+    cfg.cal={x0:c.x0+dx*.08,x1:c.x1-dx*.08,y0:c.y0+dy*.08,y1:c.y1-dy*.08};applyCfg();b.textContent='✅ 校正完成';notify('手勢校正完成');
+  }else{b.textContent='❌ 校正失敗：偵測到的移動範圍不足，請重試';notify('手勢校正失敗：移動範圍不足')}
+  setTimeout(()=>{b.style.display='none'},2500);
+  if($('win-settings').dataset.state==='open')renderSettings();
+}
+function clearToken(){githubToken='';cfg.login=null;applyCfg();try{localStorage.removeItem('gh_token')}catch(e){}renderSettings()}
+function renderSettings(){
+  $('set-body').innerHTML=`<div class="sec">桌布</div><div class="chips">${WALLS.map((w,i)=>`<button class="chip${i===cfg.wp?' on':''}" style="background:${w[1]}" onclick="setWp(${i})">${w[0]}</button>`).join('')}</div>
+  <div class="sec">字體大小：<span id="fs-val">${cfg.fs}px</span></div>
+  <div class="srow"><input type="range" min="14" max="22" step="1" value="${cfg.fs}" style="flex:1;height:44px" oninput="setFs(this.value)"></div>
+  <div class="sec">手勢控制</div>
+  <div class="srow"><button class="btn" onclick="setGesture(${!cfg.gOn})">${cfg.gOn?'🟢 已開啟（點擊關閉）':'⚪ 已關閉（點擊開啟）'}</button></div>
+  <div style="margin-bottom:4px">捏合靈敏度：<span id="pt-val">${(+cfg.pt).toFixed(2)}</span>（越大越容易觸發點擊）</div>
+  <div class="srow"><input type="range" min="0.04" max="0.14" step="0.01" value="${cfg.pt}" style="flex:1;height:44px" oninput="setPt(this.value)"></div>
+  <div style="margin-bottom:4px">游標平滑：<span id="sm-val">${cfg.sm}%</span>（越大越穩、越慢）</div>
+  <div class="srow"><input type="range" min="0" max="80" step="5" value="${cfg.sm}" style="flex:1;height:44px" oninput="setSm(this.value)"></div>
+  <div class="srow"><button class="btn" onclick="startCalib()">🎯 開始校正</button><button class="btn" onclick="resetCalib()">重設校正</button></div>
+  <div style="color:#777;font-size:14px;margin-bottom:18px">${cfg.cal?'目前使用自訂校正範圍':'目前使用預設範圍'}。校正時，8 秒內把食指移到鏡頭畫面的最左、最右、最上、最下。</div>
+  <div class="sec">GitHub 帳號</div>
+  <div class="srow"><b>${esc(GITHUB_USER)}</b><button class="btn" onclick="pickAcct()">個人／組織</button><button class="btn" onclick="setUser()">輸入帳號</button><button class="btn" onclick="showRate()">API 剩餘次數</button></div>
+  <div class="sec">GitHub Token</div>
+  <div style="margin-bottom:8px">${githubToken?'已設定（結尾 …'+esc(githubToken.slice(-4))+'）'+(cfg.login?'，登入身分 '+esc(cfg.login):''):'未設定（未登入每小時 60 次）'}</div>
+  <div class="srow"><button class="btn" onclick="setGitHubToken()">設定 Token</button><button class="btn" onclick="clearToken()">清除</button></div>
+  <div style="color:#777;font-size:14px">Token 只存在本機瀏覽器的 localStorage。寫回檔案需要 Contents 寫入權限。</div>`;
+}
+
+/* ---------- GitHub ---------- */
+let currentRepo='', currentPath='', currentBranch='', githubToken='';
+try{githubToken=localStorage.getItem('gh_token')||''}catch(e){}
+
+function setGitHubToken(){
+  const t=prompt('輸入 GitHub Personal Access Token（可提高 API 上限並讀取私有倉庫；留空則清除）：',githubToken);
+  if(t===null)return; githubToken=t.trim();
+  try{localStorage.setItem('gh_token',githubToken)}catch(e){}
+  validateToken().finally(()=>{if($('win-settings').dataset.state==='open')renderSettings();fetchGitHubRepo()});
+}
+async function ghFetch(url){
+  const headers={'Accept':'application/vnd.github+json'};
+  if(githubToken)headers['Authorization']=`Bearer ${githubToken}`;
+  let res;
+  try{res=await fetch(url,{headers})}
+  catch(e){const er=new Error('網路連線失敗，請檢查網路，或確認執行環境允許連到 api.github.com');er.status=0;throw er}
+  if(!res.ok){
+    let m=`GitHub API 回應錯誤 (${res.status})`;
+    if((res.status===403||res.status===429)&&res.headers.get('x-ratelimit-remaining')==='0'){
+      const r=res.headers.get('x-ratelimit-reset');
+      m=`API 次數已達上限，將於 ${r?new Date(r*1000).toLocaleTimeString():'稍後'} 重置。可按 🔑 設定 Token 提高上限。`;
+    }else if(res.status===401)m='Token 無效或已過期 (401)，請按 🔑 重新設定。';
+    else if(res.status===403)m='GitHub 拒絕存取 (403)。';
+    else if(res.status===404)m='找不到資源 (404)：倉庫不存在、為私有倉庫（需 Token）或名稱有誤。';
+    const er=new Error(m);er.status=res.status;throw er;
+  }
+  return res.json();
+}
+async function ghGet(url){   // 失敗時改用最近一次成功的快取
+  try{const d=await ghFetch(url);try{localStorage.setItem('ghc:'+url,JSON.stringify(d))}catch(e){}return{d,stale:false};}
+  catch(e){
+    if(e.status!==404&&e.status!==401){let c=null;try{c=JSON.parse(localStorage.getItem('ghc:'+url))}catch(_){}
+      if(c){notify('GitHub 連線失敗，改用快取：'+e.message);return{d:c,stale:true,msg:e.message}}}
+    throw e;
+  }
+}
+function crumbs(){
+  const parts=[{l:(acctType==='Organization'?'🏢 ':'')+GITHUB_USER,f:()=>{currentRepo='';currentPath='';currentBranch=''}}];
+  if(currentRepo)parts.push({l:currentRepo+(currentBranch?' ⎇ '+currentBranch:''),f:()=>{currentPath=''}});
+  const segs=currentPath?currentPath.split('/'):[];
+  segs.forEach((s,i)=>parts.push({l:s,f:()=>{currentPath=segs.slice(0,i+1).join('/')}}));
+  const box=$('crumbs');box.innerHTML='';
+  parts.forEach((p,i)=>{
+    if(i)box.insertAdjacentHTML('beforeend','<span>›</span>');
+    const b=document.createElement('button');b.textContent=p.l;
+    b.onclick=()=>{p.f();fetchGitHubRepo()};box.appendChild(b);
+  });
+  box.scrollLeft=box.scrollWidth;
+  $('ttl-finder').textContent=parts[parts.length-1].l;
+}
+function goUpGitHub(){
+  if(currentPath)currentPath=currentPath.split('/').slice(0,-1).join('/');
+  else if(currentRepo)currentRepo='';
+  else return;
+  fetchGitHubRepo();
+}
+function tile(c,icon,name,fn,title,url,extra){
+  const d=document.createElement('div');d.className='tile';d.dataset.n=String(name).toLowerCase();
+  d.innerHTML=`<div class="ic">${icon}</div><div class="nm" title="${esc(title||name)}">${esc(name)}</div>`;
+  let tm=null,long=false;
+  d.addEventListener('pointerdown',e=>{long=false;tm=setTimeout(()=>{long=true;showCtx(e.clientX,e.clientY,fn,url,extra)},500)});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>d.addEventListener(ev,()=>clearTimeout(tm)));
+  d.oncontextmenu=e=>e.preventDefault();
+  d.onclick=()=>{if(long){long=false;return}fn()};
+  c.appendChild(d);
+}
+function showMenu(x,y,items,mode){
+  let m=$('ctx');if(!m){m=document.createElement('div');m.id='ctx';document.body.appendChild(m)}
+  m.innerHTML='';
+  items.forEach(([t,f])=>{const b=document.createElement('button');b.textContent=t;b.onclick=()=>{hideCtx();f()};m.appendChild(b)});
+  m.style.display='block';
+  const w=m.offsetWidth,h=m.offsetHeight;
+  m.style.left=Math.max(8,Math.min(mode==='center'?(innerWidth-w)/2:x-w/2,innerWidth-w-8))+'px';
+  m.style.top=(mode==='center'?Math.max(48,(innerHeight-h)/2):mode==='below'?Math.min(y+14,innerHeight-h-8):Math.max(48,Math.min(y-h-16,innerHeight-h-8)))+'px';
+}
+function showCtx(x,y,fn,url,extra){showMenu(x,y,[['開啟',fn],['在 GitHub 開啟',()=>url&&window.open(url,'_blank')],['複製連結',()=>copyLink(url)],...(extra||[])])}
+function hideCtx(){const m=$('ctx');if(m)m.style.display='none'}
+function copyLink(u){if(!u)return;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).catch(()=>prompt('複製連結：',u))}
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('#ctx'))hideCtx();if(!e.target.closest('#nc,#bell'))$('nc').style.display='none'});
+async function fetchGitHubRepo(){
+  const c=$('github-file-list'), note=$('finder-note');
+  c.dataset.loaded='1';crumbs();note.innerHTML='';$('readme').innerHTML='';$('fsearch').value='';
+  c.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  try{
+    if(!currentRepo){
+      acctType=await getAcctType();
+      if(acctType==='User'&&cfg.me!==GITHUB_USER){cfg.me=GITHUB_USER;applyCfg()}
+      const own=githubToken&&cfg.login&&cfg.login.toLowerCase()===GITHUB_USER.toLowerCase();
+      const {d,stale,msg}=await ghPages(acctType==='Organization'?`${GH_API}/orgs/${GITHUB_USER}/repos?type=all&per_page=100&sort=updated`:own?`${GH_API}/user/repos?affiliation=owner&per_page=100&sort=updated`:`${GH_API}/users/${GITHUB_USER}/repos?per_page=100&sort=updated`);
+      if(stale)note.innerHTML=`<div class="note">離線或連線失敗，顯示上次快取。${esc(msg)}</div>`;
+      c.innerHTML='';
+      if(Array.isArray(d)){const org=acctType==='Organization';
+        note.insertAdjacentHTML('afterbegin',`<div class="note info">${org?'🏢 組織':'👤 使用者'}：${esc((acctInfo&&acctInfo.name)||GITHUB_USER)}（${esc(GITHUB_USER)}）· 已載入 ${d.length} 個倉庫${org&&!githubToken?' · 僅顯示公開倉庫，設定 Token 可看私有倉庫':''}</div>`)}
+      if(!Array.isArray(d)||!d.length){c.innerHTML='<div class="msg">此帳號沒有公開倉庫</div>';return}
+      d.forEach(r=>tile(c,r.private?'🔒':'📁',r.name,()=>{currentRepo=r.name;currentPath='';currentBranch='';fetchGitHubRepo()},`${r.name}${r.language?' · '+r.language:''} · ⭐${r.stargazers_count}${r.description?' - '+r.description:''}`,r.html_url));
+      return;
+    }
+    const url=`${GH_API}/repos/${GITHUB_USER}/${encodeURIComponent(currentRepo)}/contents/${currentPath.split('/').filter(Boolean).map(encodeURIComponent).join('/')}${currentBranch?'?ref='+encodeURIComponent(currentBranch):''}`;
+    const r=await ghGet(url);let files=r.d;
+    if(r.stale)note.innerHTML=`<div class="note">離線或連線失敗，顯示上次快取。${esc(r.msg)}</div>`;
+    if(!Array.isArray(files))files=[files];
+    files.sort((a,b)=>a.type===b.type?a.name.localeCompare(b.name):(a.type==='dir'?-1:1));
+    c.innerHTML='';
+    if(!files.length){c.innerHTML='<div class="msg">（空資料夾）</div>';return}
+    loadReadme(files);
+    files.forEach(f=>{
+      const n=f.name.toLowerCase();
+      const ic=f.type==='dir'?'📁':n.endsWith('.html')?'🌐':GLB.test(n)?'🧊':IMG.test(n)?'🖼️':TEXT.test(n)?'📄':'📦';
+      tile(c,ic,f.name,()=>handleFileClick(f),f.name,f.html_url,f.type==='file'?[['✏ 重新命名／移動',()=>moveFile(f)],['🗑 刪除',()=>delFile(f)]]:[]);
+    });
+  }catch(err){notify('GitHub：'+err.message);c.innerHTML=`<div class="msg err">讀取 GitHub 失敗：<br>${esc(err.message)}</div>`;}
+}
+const GLB=/\.glb$/i;
+const TEXT=/\.(md|txt|json|js|css|csv|yml|yaml|py|log|xml|ts|sh|ini|toml)$/i, IMG=/\.(png|jpe?g|gif|webp|svg)$/i;
+function pagesBase(){
+  return currentRepo.toLowerCase()===`${GITHUB_USER}.github.io`.toLowerCase()
+    ?`https://${GITHUB_USER}.github.io/`:`https://${GITHUB_USER}.github.io/${encodeURIComponent(currentRepo)}/`;
+}
+function handleFileClick(f){
+  const n=f.name;
+  if(f.type==='dir'){currentPath=f.path;fetchGitHubRepo();}
+  else if(TEXT.test(n)){
+    fetch(f.download_url).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
+      .then(t=>{noteFile={repo:currentRepo,path:f.path,sha:f.sha,branch:currentBranch};$('note-info').textContent=currentRepo+'/'+f.path;$('ttl-notes').textContent=n;$('notepad-content').value=t;openApp('notes')})
+      .catch(e=>alert('讀取檔案失敗：'+e.message));
+  }else if(GLB.test(n)){loadGLB(f);
+  }else if(IMG.test(n)){
+    $('prev-img').src=f.download_url;$('ttl-preview').textContent=n;openApp('preview');
+  }else if(/\.html?$/i.test(n)){
+    window.open(pagesBase()+f.path.split('/').map(encodeURIComponent).join('/'),'_blank');
+  }else alert(`${n}\n檔案大小：${f.size} bytes`);
+}
+
+/* ---------- 備忘錄儲存 ---------- */
+let noteFile=null;
+async function saveNote(){
+  const txt=$('notepad-content').value, info=$('note-info'), hm=()=>new Date().toLocaleTimeString('zh-TW',{hour12:false});
+  if(!noteFile){
+    try{localStorage.setItem('note_local',txt);info.textContent='本機備忘錄 · 已存到本機 '+hm()}catch(e){info.textContent='儲存失敗'}
+    return;
+  }
+  if(!githubToken){alert('寫回 GitHub 需要具備寫入權限的 Token，請到「系統設定」設定。');return}
+  const msg=askMsg(`GitDesk: 更新 ${noteFile.path}`);if(msg===null)return;
+  info.textContent='儲存中...';
+  try{
+    const res=await fetch(`${GH_API}/repos/${GITHUB_USER}/${encodeURIComponent(noteFile.repo)}/contents/${noteFile.path.split('/').map(encodeURIComponent).join('/')}`,{
+      method:'PUT',
+      headers:{'Accept':'application/vnd.github+json','Authorization':`Bearer ${githubToken}`,'Content-Type':'application/json'},
+      body:JSON.stringify({message:msg,content:btoa(unescape(encodeURIComponent(txt))),sha:noteFile.sha,...(noteFile.branch?{branch:noteFile.branch}:{})})
+    });
+    if(!res.ok){
+      info.textContent=res.status===409||res.status===422?'檔案已在 GitHub 更新，請重新開啟後再編輯':
+        res.status===401?'Token 無效或已過期':res.status===403||res.status===404?'沒有寫入權限（Token 需 Contents 寫入權限）':'儲存失敗 ('+res.status+')';
+      return;
+    }
+    noteFile.sha=(await res.json()).content.sha;
+    info.textContent=`${noteFile.repo}/${noteFile.path} · 已寫回 ${hm()}`;notify('已寫回 GitHub：'+noteFile.path);
+  }catch(e){info.textContent='儲存失敗：'+e.message}
+}
+
+/* ---------- 提醒事項（待辦清單） ---------- */
+const DEF=[
+ ['P1','macOS 風格介面（選單列、Dock、紅黃綠按鈕）',1],['P1','Dock 指示燈與視窗切換',1],['P1','視窗最小化與最大化',1],
+ ['P1','檔案預覽：圖片與更多文字格式',1],['P1','麵包屑路徑列',1],['P1','載入提示與離線快取',1],
+ ['P2','設定視窗：桌布、字體大小、Token 管理',1],['P2','備忘錄可編輯並寫回 GitHub',1],['P2','長按圖示選單',1],['P2','PWA：加到主畫面全螢幕開啟',1],
+ ['P3','圖示拖曳排列並記憶位置',1],['P3','通知中心',1],['P3','小工具：計算機、時鐘',1],['P3','3D 檢視器載入 .glb 模型',1],['P3','手勢校正與開關',1],
+ ['GitHub','切換帳號、顯示私有倉庫',1],['GitHub','分支切換（瀏覽與寫回）',1],['GitHub','新增、上傳、刪除檔案',1],
+ ['GitHub','Issues、Pull Requests、提交記錄檢視',1],['GitHub','新增 Issue',1],['GitHub','Token 驗證與 API 剩餘次數',1],['GitHub','倉庫標示私有、語言、星數',1],
+ ['GitHub','README Markdown 渲染',1],['GitHub','備忘錄自訂 commit 訊息',1],['GitHub','檔案差異（Diff）檢視',1],['GitHub','Issue 留言與關閉',1],
+ ['GitHub','建立倉庫、Star、Fork',1],['GitHub','Actions 執行狀態',1],['GitHub','搜尋倉庫與程式碼',1],['GitHub','分頁（超過 100 個倉庫）',1],
+ ['GitHub','語法高亮',1],['GitHub','重新命名與移動檔案',1],
+ ['GitHub','Pull Request 詳情與合併',1],['GitHub','Releases 檢視與下載',1],['GitHub','Gist 管理',1],['GitHub','GitHub 通知（Notifications）整合',1],
+ ['GitHub','組織（Organization）倉庫瀏覽',1],['GitHub','組織成員與團隊檢視',0],['GitHub','PR 審查與行內留言',0],['GitHub','檔案 Blame 與單檔歷史',0],['GitHub','多帳號 Token 管理',0]
+];
+let todos=(()=>{try{const s=JSON.parse(localStorage.getItem('todo_v1'));if(Array.isArray(s))return s}catch(e){}
+  return DEF.map(([g,t,d],i)=>({id:i,g,t,d}))})();
+function saveTodos(){try{localStorage.setItem('todo_v1',JSON.stringify(todos))}catch(e){}renderWidget();}
+function renderWidget(){
+  const n=todos.filter(t=>!t.d).length;
+  $('wtodo').textContent=`✅ 待辦事項：未完成 ${n} 項（共 ${todos.length} 項）`;
+}
+try{if(localStorage.getItem('todo_ver')!=='8'){
+  DEF.forEach(([g,t,d])=>{const x=todos.find(y=>y.t===t);if(x){if(d&&!x.d)x.d=1}else if(g==='GitHub')todos.push({id:Date.now()+Math.random(),g,t,d})});
+  localStorage.setItem('todo_ver','8');saveTodos();}}catch(e){}
+function renderTodos(){
+  const box=$('todo-list');box.innerHTML='';
+  ['P1','P2','P3','GitHub','自訂'].forEach(g=>{
+    const items=todos.filter(t=>t.g===g);if(!items.length)return;
+    box.insertAdjacentHTML('beforeend',`<div class="todo-g">${g==='自訂'?'自訂':g==='GitHub'?'GitHub 功能':g+(g==='P1'?'（第一階段）':g==='P2'?'（第二階段）':'（第三階段）')}　${items.filter(t=>t.d).length}/${items.length}</div>`);
+    items.forEach(t=>{
+      const r=document.createElement('div');r.className='todo'+(t.d?' done':'');
+      r.innerHTML=`<div class="cb">${t.d?'✓':''}</div><div class="tx">${esc(t.t)}</div><button class="x" aria-label="刪除">×</button>`;
+      r.querySelector('.cb').onclick=r.querySelector('.tx').onclick=()=>{t.d=t.d?0:1;saveTodos();renderTodos()};
+      r.querySelector('.x').onclick=()=>{todos=todos.filter(x=>x!==t);saveTodos();renderTodos()};
+      box.appendChild(r);
+    });
+  });
+}
+function addTodo(){
+  const i=$('todo-in'),v=i.value.trim();if(!v)return;
+  todos.push({id:Date.now(),g:'自訂',t:v,d:0});i.value='';saveTodos();renderTodos();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement===$('todo-in'))addTodo()});
+
+/* ---------- Three.js ---------- */
+let scene,camera,renderer,holoMesh,modelType=0,isPinched=false,lastPinch=false;
+function init3D(){
+  if(renderer){resize3D();return}
+  const c=$('3d-canvas-container');
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(50,c.clientWidth/c.clientHeight,.1,1000);camera.position.z=4;
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setSize(c.clientWidth,c.clientHeight);c.insertBefore(renderer.domElement,c.firstChild);
+  const l=new THREE.DirectionalLight(0xffffff,1);l.position.set(2,2,5);scene.add(l);scene.add(new THREE.AmbientLight(0x404040,2));
+  createModel();(function loop(){requestAnimationFrame(loop);if(holoMesh&&!isPinched)holoMesh.rotation.y+=.01;renderer.render(scene,camera)})();
+}
+function resize3D(){
+  if(!renderer)return;const c=$('3d-canvas-container');
+  renderer.setSize(c.clientWidth,c.clientHeight);camera.aspect=c.clientWidth/c.clientHeight;camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize3D);
+function createModel(){
+  if(holoMesh)scene.remove(holoMesh);
+  const g=modelType===0?new THREE.IcosahedronGeometry(1.2,1):modelType===1?new THREE.TorusKnotGeometry(.8,.3,100,16):new THREE.BoxGeometry(1.5,1.5,1.5);
+  holoMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x00ffff,wireframe:true,emissive:0x003366}));scene.add(holoMesh);
+}
+function switch3DModel(){modelType=(modelType+1)%3;createModel()}
+
+/* ---------- 手勢控制 ---------- */
+let cam=null,handsObj=null,sx=null,sy=null;
+const CAL0={x0:.1,x1:.9,y0:.1,y1:.9};
+function gStatus(t){$('gestureStatus').textContent=t}
+function initCamera(){
+  const v=$('webcam');
+  handsObj=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  handsObj.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.6,minTrackingConfidence:.6});
+  handsObj.onResults(onHand);
+  cam=new Camera(v,{onFrame:async()=>{if(cfg.gOn)await handsObj.send({image:v})},width:320,height:240,facingMode:'user'});
+  Promise.resolve(cam.start()).catch(()=>gStatus('✋ 相機無法啟用'));
+}
+function setGesture(on){
+  cfg.gOn=on;applyCfg();
+  $('webcam-box').style.display=on?'':'none';$('virtual-cursor').style.display=on?'':'none';
+  if(on){
+    gStatus('✋ 搜尋手部...');
+    try{if(!cam)initCamera();else Promise.resolve(cam.start()).catch(()=>gStatus('✋ 相機無法啟用'))}catch(e){gStatus('✋ 相機無法啟用')}
+  }else{
+    gStatus('✋ 手勢關閉');
+    try{if(cam)cam.stop()}catch(e){}
+    const v=$('webcam');if(v.srcObject)v.srcObject.getTracks().forEach(t=>t.stop());
+    sx=sy=null;
+  }
+  if($('win-settings').dataset.state==='open')renderSettings();
+}
+function onHand(r){
+  if(!cfg.gOn)return;
+  const cur=$('virtual-cursor');
+  if(!r.multiHandLandmarks||!r.multiHandLandmarks.length){
+    gStatus('✋ 搜尋手部...');cur.classList.remove('cursor-pinched');isPinched=false;lastPinch=false;return;
+  }
+  gStatus(calib?'✋ 校正中':'✋ 手指控制中');
+  const L=r.multiHandLandmarks[0],i=L[8],t=L[4];
+  if(calib){calib.x0=Math.min(calib.x0,i.x);calib.x1=Math.max(calib.x1,i.x);calib.y0=Math.min(calib.y0,i.y);calib.y1=Math.max(calib.y1,i.y);calib.n++}
+  const c=cfg.cal||CAL0, cl=v=>Math.min(1,Math.max(0,v));
+  const nx=cl((i.x-c.x0)/(c.x1-c.x0)), ny=cl((i.y-c.y0)/(c.y1-c.y0));
+  const x=(1-nx)*innerWidth, y=ny*innerHeight, a=1-cfg.sm/100;
+  sx=sx===null?x:sx+(x-sx)*a; sy=sy===null?y:sy+(y-sy)*a;
+  cur.style.left=sx+'px';cur.style.top=sy+'px';
+  isPinched=Math.hypot(i.x-t.x,i.y-t.y)<cfg.pt*(lastPinch?1.3:1);   // 放開門檻略大，避免抖動
+  if(isPinched){
+    cur.classList.add('cursor-pinched');
+    if(!lastPinch&&!calib){const el=document.elementFromPoint(sx,sy);if(el)el.click()}
+    if(holoMesh){holoMesh.rotation.y=(sx/innerWidth-.5)*5;holoMesh.rotation.x=(sy/innerHeight-.5)*5}
+  }else cur.classList.remove('cursor-pinched');
+  lastPinch=isPinched;
+}
+
+/* ---------- GitHub 進階功能 ---------- */
+let hubTab='issues';
+function authHdr(){return{'Accept':'application/vnd.github+json','Authorization':`Bearer ${githubToken}`,'Content-Type':'application/json'}}
+const repoBase=()=>`${GH_API}/repos/${GITHUB_USER}/${encodeURIComponent(currentRepo)}`;
+async function validateToken(){
+  if(!githubToken){cfg.login=null;applyCfg();return}
+  try{const d=await ghFetch(`${GH_API}/user`);cfg.login=d.login;applyCfg();notify('Token 驗證成功，登入身分：'+d.login)}
+  catch(e){cfg.login=null;applyCfg();notify('Token 驗證失敗：'+e.message)}
+}
+async function showRate(){
+  try{const c=(await ghFetch(`${GH_API}/rate_limit`)).resources.core;
+    alert(`API 上限 ${c.limit} 次／小時\n剩餘 ${c.remaining} 次\n重置時間 ${new Date(c.reset*1000).toLocaleTimeString('zh-TW',{hour12:false})}`)}
+  catch(e){alert('查詢失敗：'+e.message)}
+}
+function setUser(){
+  const v=(prompt('輸入要瀏覽的 GitHub 帳號：',GITHUB_USER)||'').trim();
+  if(!v)return;
+  if(!/^[A-Za-z0-9-]{1,39}$/.test(v)){alert('帳號格式不正確');return}
+  goUser(v);
+}
+function moreMenu(e){
+  const r=!!currentRepo;
+  showMenu(e.clientX,e.clientY,[
+    ...(r?[['🌿 切換分支',pickBranch],['＋ 新增文字檔',newFile],['⬆ 上傳檔案',()=>$('upl').click()],['🐞 Issues',()=>openHub('issues')],['🔀 Pull Requests',()=>openHub('pulls')],['🕘 提交記錄',()=>openHub('commits')],['⚙ Actions',()=>openHub('runs')],['🏷 Releases',()=>openHub('releases')],['🔍 搜尋程式碼',searchCode],['⭐ Star',()=>starRepo(true)],['☆ 取消 Star',()=>starRepo(false)],['🍴 Fork',forkRepo]]:[['＋ 建立倉庫',createRepo]]),
+    ['🏢 切換個人／組織',pickAcct],['📋 Gist',()=>openHub('gists')],['🔔 GitHub 通知',()=>openHub('notifs')],['🔑 設定 Token',setGitHubToken],['👤 切換帳號',setUser]],'below');
+}
+async function pickBranch(){
+  try{
+    const {d}=await ghGet(repoBase()+'/branches?per_page=50');
+    showMenu(0,0,[['預設分支',()=>{currentBranch='';currentPath='';fetchGitHubRepo()}],...d.map(b=>[(b.name===currentBranch?'✓ ':'')+b.name,()=>{currentBranch=b.name;currentPath='';fetchGitHubRepo()}])],'center');
+  }catch(e){notify('取得分支失敗：'+e.message)}
+}
+async function ghWrite(method,path,body){
+  if(!githubToken)throw new Error('需要 Token（Contents 寫入權限）');
+  if(!currentRepo)throw new Error('請先進入倉庫');
+  if(currentBranch)body.branch=currentBranch;
+  const r=await fetch(`${repoBase()}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,{method,headers:authHdr(),body:JSON.stringify(body)});
+  if(!r.ok){let m='';try{m=(await r.json()).message}catch(_){}throw new Error(`${r.status} ${m}`)}
+  return r.json();
+}
+async function newFile(){
+  const name=(prompt('新檔案名稱（目前位置：'+(currentPath||'/')+'）\n例如 notes.md 或 docs/a.md','')||'').trim().replace(/^\/+/,'');
+  if(!name)return;
+  const path=currentPath&&!name.includes('/')?currentPath+'/'+name:name;
+  const msg=askMsg(`GitDesk: 新增 ${path}`);if(msg===null)return;
+  try{await ghWrite('PUT',path,{message:msg,content:'Cg=='});notify('已新增檔案：'+path);fetchGitHubRepo()}
+  catch(e){notify('新增檔案失敗：'+e.message)}
+}
+function uploadFile(inp){
+  const f=inp.files[0];inp.value='';if(!f)return;
+  if(f.size>20*1024*1024){alert('檔案超過 20MB，請改用 Git 上傳');return}
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    const path=(currentPath?currentPath+'/':'')+f.name;
+    const msg=askMsg(`GitDesk: 上傳 ${f.name}`);if(msg===null)return;
+    try{await ghWrite('PUT',path,{message:msg,content:String(rd.result).split(',')[1]});notify('已上傳：'+path);fetchGitHubRepo()}
+    catch(e){notify('上傳失敗：'+e.message)}
+  };
+  rd.readAsDataURL(f);
+}
+async function delFile(f){
+  if(!confirm(`確定刪除 ${f.path}？`))return;
+  const msg=askMsg(`GitDesk: 刪除 ${f.path}`);if(msg===null)return;
+  try{await ghWrite('DELETE',f.path,{message:msg,sha:f.sha});notify('已刪除：'+f.path);fetchGitHubRepo()}
+  catch(e){notify('刪除失敗：'+e.message)}
+}
+const HUBT={issues:'Issues',pulls:'Pull Requests',commits:'提交記錄',runs:'Actions',releases:'Releases',gists:'Gist',notifs:'GitHub 通知'};
+function openHub(t){openApp('hub');renderHub(t)}
+async function renderHub(tab){
+  hubTab=tab;Object.keys(HUBT).forEach(t=>{const e=$('hb-'+t);if(e)e.classList.toggle('on',t===tab)});
+  const b=$('hub-body');
+  if(!currentRepo&&tab!=='gists'&&tab!=='notifs'){b.innerHTML='<div class="msg">請先在 Finder 進入一個倉庫</div>';return}
+  $('ttl-hub').textContent=`${currentRepo?currentRepo+' · ':''}${HUBT[tab]}`;
+  b.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  const u={issues:`${repoBase()}/issues?state=open&per_page=50`,pulls:`${repoBase()}/pulls?state=open&per_page=30`,runs:`${repoBase()}/actions/runs?per_page=20`,releases:`${repoBase()}/releases?per_page=20`,notifs:`${GH_API}/notifications?per_page=30`,
+    gists:(githubToken&&cfg.login&&cfg.login.toLowerCase()===GITHUB_USER.toLowerCase())?`${GH_API}/gists?per_page=30`:`${GH_API}/users/${GITHUB_USER}/gists?per_page=30`,
+    commits:`${repoBase()}/commits?per_page=30${currentBranch?'&sha='+encodeURIComponent(currentBranch):''}${currentPath?'&path='+encodeURIComponent(currentPath):''}`}[tab];
+  try{
+    let {d}=await ghGet(u);
+    if(tab==='runs')d=d.workflow_runs;
+    if(tab==='issues')d=d.filter(x=>!x.pull_request);
+    b.innerHTML=hubHead(tab)+(d.length?d.map(x=>hubRow(tab,x)).join(''):'<div class="msg">沒有資料</div>');
+  }catch(e){b.innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
+}
+function hubRow(tab,x){
+  const u=esc(x.html_url),dt=v=>new Date(v).toLocaleDateString('zh-TW');
+  if(tab==='releases')return `<div class="hrow" onclick="hubRelease(${x.id})"><b>🏷 ${esc(x.name||x.tag_name)}</b><small>${esc(x.tag_name)} · ${x.prerelease?'預發佈 · ':''}${dt(x.published_at||x.created_at)} · ${x.assets.length} 個檔案</small></div>`;
+  if(tab==='gists'){const fn=Object.keys(x.files);return `<div class="hrow" onclick="hubGist('${x.id}')"><b>${x.public?'🌐':'🔒'} ${esc(x.description||fn[0])}</b><small>${fn.length} 個檔案 · ${dt(x.updated_at)}</small></div>`}
+  if(tab==='notifs')return `<div class="hrow" onclick="openNotif('${x.id}','${esc(x.subject.url||'')}','${esc(x.repository.html_url)}')"><b>${x.unread?'🔵 ':''}${esc(x.subject.title)}</b><small>${esc(x.repository.full_name)} · ${esc(x.subject.type)} · ${esc(x.reason)} · ${dt(x.updated_at)}</small></div>`;
+  if(tab==='commits'){const c=x.commit;return `<div class="hrow" onclick="commitDiff('${x.sha}')"><b>${esc(c.message.split('\n')[0])}</b><small>${x.sha.slice(0,7)} · ${esc((x.author&&x.author.login)||c.author.name)} · ${dt(c.author.date)}</small></div>`}
+  if(tab==='runs'){const ic=x.conclusion==='success'?'✅':x.conclusion==='failure'?'❌':x.status==='completed'?'⚪':'⏳';return `<div class="hrow" onclick="window.open('${u}','_blank')"><b>${ic} ${esc(x.name)}</b><small>${esc(x.head_branch)} · ${esc(x.event)} · ${dt(x.created_at)}</small></div>`}
+  if(tab==='issues')return `<div class="hrow" onclick="hubIssue(${x.number})"><b>#${x.number} ${esc(x.title)}</b><small>${esc(x.user.login)} · ${x.comments} 則留言 · ${dt(x.created_at)}</small></div>`;
+  return `<div class="hrow" onclick="hubPR(${x.number})"><b>#${x.number} ${esc(x.title)}</b><small>${esc(x.user.login)} · ${dt(x.created_at)}</small></div>`;
+}
+async function commitDiff(sha){
+  const b=$('hub-body');b.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  try{
+    const c=await ghFetch(`${repoBase()}/commits/${sha}`);
+    b.innerHTML=`<button class="btn2" onclick="renderHub('commits')">‹ 返回</button><div><b>${esc(c.commit.message.split('\n')[0])}</b></div><small>${c.sha.slice(0,7)} · +${c.stats.additions} −${c.stats.deletions} · ${c.files.length} 個檔案</small>`+
+      c.files.map(f=>`<div class="fh">${esc(f.filename)} <small>(${esc(f.status)})</small></div><pre class="diff">${f.patch?esc(f.patch.slice(0,6000)).split('\n').map(l=>`<span class="${l[0]==='+'?'ad':l[0]==='-'?'rm':''}">${l||' '}</span>`).join(''):'（二進位檔或內容過大，沒有 diff）'}</pre>`).join('');
+  }catch(e){b.innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
+}
+async function hubIssue(n){
+  const b=$('hub-body');b.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  try{
+    const [i,cs]=await Promise.all([ghFetch(`${repoBase()}/issues/${n}`),ghFetch(`${repoBase()}/issues/${n}/comments?per_page=50`)]);
+    const open=i.state==='open';
+    b.innerHTML=`<button class="btn2" onclick="renderHub('issues')">‹ 返回</button><h3 style="margin:4px 0">#${i.number} ${esc(i.title)}</h3><small>${esc(i.user.login)} · ${open?'🟢 開啟':'🟣 已關閉'}</small><div class="md" style="margin-top:8px">${md(i.body||'（無內容）')}</div>`+
+      cs.map(c=>`<div class="hrow" style="cursor:default"><small>${esc(c.user.login)} · ${new Date(c.created_at).toLocaleString('zh-TW',{hour12:false})}</small><div class="md">${md(c.body)}</div></div>`).join('')+
+      `<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn2" onclick="issueComment(${n})">💬 留言</button><button class="btn2" style="background:#8e8e93" onclick="issueState(${n},'${open?'closed':'open'}')">${open?'關閉 Issue':'重新開啟'}</button><button class="btn2" style="background:#8e8e93" onclick="window.open('${esc(i.html_url)}','_blank')">在 GitHub 開啟</button></div>`;
+  }catch(e){b.innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
+}
+async function issueComment(n,k){
+  const t=(prompt('留言內容')||'').trim();if(!t)return;
+  try{await ghSend('POST',`${repoBase()}/issues/${n}/comments`,{body:t});notify(`已留言 #${n}`);(k==='pr'?hubPR:hubIssue)(n)}catch(e){notify('留言失敗：'+e.message)}
+}
+async function issueState(n,st){
+  try{await ghSend('PATCH',`${repoBase()}/issues/${n}`,{state:st});notify(`#${n} 已${st==='closed'?'關閉':'重新開啟'}`);hubIssue(n)}catch(e){notify('操作失敗：'+e.message)}
+}
+async function searchCode(){
+  const q=(prompt('搜尋程式碼關鍵字（需 Token）')||'').trim();if(!q)return;
+  openApp('hub');Object.keys(HUBT).forEach(t=>{const e=$('hb-'+t);if(e)e.classList.remove('on')});
+  $('ttl-hub').textContent='程式碼搜尋：'+q;
+  const b=$('hub-body');b.innerHTML='<div class="msg">⏳ 搜尋中...</div>';
+  try{
+    const d=await ghFetch(`${GH_API}/search/code?q=${encodeURIComponent(q+(currentRepo?` repo:${GITHUB_USER}/${currentRepo}`:` user:${GITHUB_USER}`))}&per_page=30`);
+    b.innerHTML=d.items.length?d.items.map(x=>`<div class="hrow" onclick="window.open('${esc(x.html_url)}','_blank')"><b>${esc(x.path)}</b><small>${esc(x.repository.full_name)}</small></div>`).join(''):'<div class="msg">沒有結果</div>';
+  }catch(e){b.innerHTML=`<div class="msg err">${esc(e.message)}${githubToken?'':'<br>程式碼搜尋需要設定 Token'}</div>`}
+}
+async function ghSend(method,url,body){
+  if(!githubToken)throw new Error('此操作需要 Token');
+  const r=await fetch(url,{method,headers:authHdr(),body:body?JSON.stringify(body):undefined});
+  if(!r.ok){let m='';try{m=(await r.json()).message}catch(_){}throw new Error(`${r.status} ${m}`)}
+  return r.status===204?null:r.json().catch(()=>null);
+}
+async function createRepo(){
+  const name=(prompt('新倉庫名稱')||'').trim();if(!name)return;
+  const priv=confirm('設為私有倉庫？（取消 = 公開）');
+  try{const r=await ghSend('POST',acctType==='Organization'?`${GH_API}/orgs/${GITHUB_USER}/repos`:GH_API+'/user/repos',{name,private:priv,auto_init:true});notify('已建立倉庫：'+r.full_name);fetchGitHubRepo()}
+  catch(e){notify('建立倉庫失敗：'+e.message)}
+}
+async function starRepo(on){
+  try{await ghSend(on?'PUT':'DELETE',`${GH_API}/user/starred/${GITHUB_USER}/${encodeURIComponent(currentRepo)}`);notify((on?'已 Star：':'已取消 Star：')+currentRepo)}
+  catch(e){notify('Star 操作失敗：'+e.message)}
+}
+async function forkRepo(){
+  if(!confirm(`Fork ${currentRepo} 到你的帳號？`))return;
+  try{await ghSend('POST',repoBase()+'/forks',{});notify('已送出 Fork 請求：'+currentRepo)}catch(e){notify('Fork 失敗：'+e.message)}
+}
+async function moveFile(f){
+  const np=(prompt('新路徑（含檔名）',f.path)||'').trim().replace(/^\/+/,'');
+  if(!np||np===f.path)return;
+  const msg=askMsg(`GitDesk: 移動 ${f.path} → ${np}`);if(msg===null)return;
+  try{
+    const bl=await ghFetch(`${repoBase()}/git/blobs/${f.sha}`);
+    await ghWrite('PUT',np,{message:msg,content:bl.content.replace(/\n/g,'')});
+    await ghWrite('DELETE',f.path,{message:msg,sha:f.sha});
+    notify(`已移動：${f.path} → ${np}`);fetchGitHubRepo();
+  }catch(e){notify('移動失敗（請確認新舊路徑是否都存在）：'+e.message)}
+}
+async function newIssue(){
+  if(!githubToken){alert('新增 Issue 需要 Token（Issues 寫入權限）');return}
+  const t=(prompt('Issue 標題')||'').trim();if(!t)return;
+  const body=prompt('內容（可留空）')||'';
+  try{
+    const r=await fetch(repoBase()+'/issues',{method:'POST',headers:authHdr(),body:JSON.stringify({title:t,body})});
+    if(!r.ok){let m='';try{m=(await r.json()).message}catch(_){}throw new Error(r.status+' '+m)}
+    notify('已建立 Issue：'+t);renderHub('issues');
+  }catch(e){notify('建立 Issue 失敗：'+e.message)}
+}
+
+function hubHead(tab){
+  return tab==='issues'?'<button class="btn2" onclick="newIssue()">＋ 新增 Issue</button>':
+    tab==='gists'?'<button class="btn2" onclick="newGist()">＋ 新增 Gist</button>':
+    tab==='notifs'?'<button class="btn2" onclick="readAllNotifs()">全部標為已讀</button>':'';
+}
+const diffFiles=fs=>fs.map(f=>`<div class="fh">${esc(f.filename)} <small>(${esc(f.status)})</small></div><pre class="diff">${f.patch?esc(f.patch.slice(0,6000)).split('\n').map(l=>`<span class="${l[0]==='+'?'ad':l[0]==='-'?'rm':''}">${l||' '}</span>`).join(''):'（二進位檔或內容過大，沒有 diff）'}</pre>`).join('');
+async function hubPR(n){
+  const b=$('hub-body');b.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  try{
+    const [p,fs]=await Promise.all([ghFetch(`${repoBase()}/pulls/${n}`),ghFetch(`${repoBase()}/pulls/${n}/files?per_page=30`)]);
+    const st=p.merged?'🟣 已合併':p.state==='open'?'🟢 開啟':'🔴 已關閉';
+    b.innerHTML=`<button class="btn2" onclick="renderHub('pulls')">‹ 返回</button><h3 style="margin:4px 0">#${p.number} ${esc(p.title)}</h3><small>${esc(p.user.login)} · ${st} · ${esc(p.head.ref)} → ${esc(p.base.ref)}<br>+${p.additions} −${p.deletions} · ${p.changed_files} 個檔案 · 合併狀態：${esc(p.mergeable_state||'計算中')}</small><div class="md" style="margin-top:8px">${md(p.body||'（無內容）')}</div>`+
+      `<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap">`+(p.state==='open'?`<button class="btn2" onclick="mergePR(${n})">合併…</button><button class="btn2" style="background:#8e8e93" onclick="prState(${n},'closed')">關閉 PR</button>`:'')+
+      `<button class="btn2" style="background:#8e8e93" onclick="issueComment(${n},'pr')">💬 留言</button><button class="btn2" style="background:#8e8e93" onclick="window.open('${esc(p.html_url)}','_blank')">在 GitHub 開啟</button></div>`+diffFiles(fs);
+  }catch(e){b.innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
+}
+function mergePR(n){showMenu(0,0,[['合併（Merge commit）',()=>doMerge(n,'merge')],['壓縮合併（Squash）',()=>doMerge(n,'squash')],['變基合併（Rebase）',()=>doMerge(n,'rebase')]],'center')}
+async function doMerge(n,m){
+  if(!confirm(`確定以 ${m} 方式合併 #${n}？`))return;
+  try{await ghSend('PUT',`${repoBase()}/pulls/${n}/merge`,{merge_method:m});notify(`已合併 PR #${n}（${m}）`)}catch(e){notify('合併失敗：'+e.message)}
+  hubPR(n);
+}
+async function prState(n,st){
+  try{await ghSend('PATCH',`${repoBase()}/pulls/${n}`,{state:st});notify(`PR #${n} 已關閉`)}catch(e){notify('操作失敗：'+e.message)}
+  hubPR(n);
+}
+async function hubRelease(id){
+  const b=$('hub-body');b.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  try{
+    const r=await ghFetch(`${repoBase()}/releases/${id}`);
+    b.innerHTML=`<button class="btn2" onclick="renderHub('releases')">‹ 返回</button><h3 style="margin:4px 0">${esc(r.name||r.tag_name)}</h3><small>${esc(r.tag_name)} · ${new Date(r.published_at||r.created_at).toLocaleDateString('zh-TW')}</small><div class="md" style="margin-top:8px">${md(r.body||'（無說明）')}</div><div class="sec" style="margin-top:14px">下載（${r.assets.length}）</div>`+
+      r.assets.map(a=>`<div class="hrow" onclick="window.open('${esc(a.browser_download_url)}','_blank')"><b>⬇ ${esc(a.name)}</b><small>${(a.size/1048576).toFixed(2)} MB · 下載 ${a.download_count} 次</small></div>`).join('')+
+      `<div class="hrow" onclick="window.open('https://github.com/${esc(GITHUB_USER)}/${esc(encodeURIComponent(currentRepo))}/archive/refs/tags/${esc(encodeURIComponent(r.tag_name))}.zip','_blank')"><b>⬇ 原始碼（zip）</b></div>`;
+  }catch(e){b.innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
+}
+async function hubGist(id){
+  const b=$('hub-body');b.innerHTML='<div class="msg">⏳ 載入中...</div>';
+  try{
+    const g=await ghFetch(`${GH_API}/gists/${id}`);
+    b.innerHTML=`<button class="btn2" onclick="renderHub('gists')">‹ 返回</button><h3 style="margin:4px 0">${esc(g.description||'（無描述）')}</h3><small>${g.public?'🌐 公開':'🔒 秘密'} · ${esc((g.owner&&g.owner.login)||'')}</small>`+
+      Object.values(g.files).map(f=>`<div class="fh">${esc(f.filename)}</div><pre class="hl" style="padding:10px;user-select:text">${esc((f.content||'').slice(0,8000))}${f.truncated?'\n…（內容過長，已截斷）':''}</pre>`).join('')+
+      `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn2" style="background:#8e8e93" onclick="window.open('${esc(g.html_url)}','_blank')">在 GitHub 開啟</button>${githubToken?`<button class="btn2" style="background:#ff3b30" onclick="delGist('${esc(g.id)}')">刪除</button>`:''}</div>`;
+  }catch(e){b.innerHTML=`<div class="msg err">${esc(e.message)}</div>`}
+}
+async function newGist(){
+  const fn=(prompt('檔名（例如 note.md）')||'').trim();if(!fn)return;
+  const content=confirm('使用目前備忘錄的內容？\n（取消則手動輸入單行內容）')?$('notepad-content').value:(prompt('內容')||'');
+  if(!content.trim()){notify('建立 Gist 失敗：內容不可為空');return}
+  const pub=confirm('設為公開 Gist？（取消 = 秘密）');
+  try{await ghSend('POST',GH_API+'/gists',{description:fn,public:pub,files:{[fn]:{content}}});notify('已建立 Gist：'+fn);renderHub('gists')}
+  catch(e){notify('建立 Gist 失敗：'+e.message)}
+}
+async function delGist(id){
+  if(!confirm('確定刪除這個 Gist？'))return;
+  try{await ghSend('DELETE',`${GH_API}/gists/${id}`);notify('已刪除 Gist')}catch(e){notify('刪除 Gist 失敗：'+e.message)}
+  renderHub('gists');
+}
+function notifHtml(api,repoUrl){return api?api.replace('https://api.github.com/repos/','https://github.com/').replace('/pulls/','/pull/').replace('/commits/','/commit/'):repoUrl}
+function openNotif(id,api,repoUrl){
+  ghSend('PATCH',`${GH_API}/notifications/threads/${id}`).catch(()=>{});
+  window.open(notifHtml(api,repoUrl),'_blank');
+}
+async function readAllNotifs(){
+  try{await ghSend('PUT',GH_API+'/notifications',{last_read_at:new Date().toISOString()});notify('已將 GitHub 通知全部標為已讀')}catch(e){notify('操作失敗：'+e.message)}
+  renderHub('notifs');
+}
+let acctType='',acctInfo=null;const acctCache={};
+async function getAcctType(){
+  if(!acctCache[GITHUB_USER]){
+    try{acctCache[GITHUB_USER]=(await ghGet(`${GH_API}/users/${GITHUB_USER}`)).d}catch(e){acctInfo=null;return ''}
+  }
+  acctInfo=acctCache[GITHUB_USER];return acctInfo.type||'';
+}
+function goUser(v){
+  GITHUB_USER=v;cfg.user=v;applyCfg();currentRepo='';currentPath='';currentBranch='';
+  if($('win-settings').dataset.state==='open')renderSettings();
+  fetchGitHubRepo();
+}
+async function pickAcct(){
+  try{
+    const me=cfg.login||cfg.me||(acctType==='User'?GITHUB_USER:'');
+    const {d}=await ghGet(githubToken?`${GH_API}/user/orgs?per_page=100`:`${GH_API}/users/${me||GITHUB_USER}/orgs?per_page=100`);
+    const items=[];
+    if(me)items.push([(GITHUB_USER===me?'✓ ':'')+'👤 '+me,()=>goUser(me)]);
+    d.forEach(o=>items.push([(GITHUB_USER===o.login?'✓ ':'')+'🏢 '+o.login,()=>goUser(o.login)]));
+    if(!d.length)notify('沒有找到可見的組織。若你是私人成員，Token 需要 read:org 範圍。');
+    items.push(['✏ 輸入其他帳號或組織…',setUser]);
+    showMenu(0,0,items,'center');
+  }catch(e){notify('取得組織失敗：'+e.message)}
+}
+const askMsg=d=>{const m=prompt('Commit 訊息',d);return m===null?null:(m.trim()||d)};
+function md(t){
+  const blocks=[];
+  t=esc(t).replace(/```[^\n]*\n([\s\S]*?)```/g,(_,c)=>{blocks.push(c);return '\u0000'+(blocks.length-1)+'\u0000'});
+  t=t.replace(/^(#{1,6}) (.+)$/gm,(_,h,x)=>`<h${h.length}>${x}</h${h.length}>`)
+   .replace(/^&gt; (.+)$/gm,'<blockquote>$1</blockquote>')
+   .replace(/^\s*[-*] (.+)$/gm,'<li>$1</li>')
+   .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g,'<img src="$2" alt="$1">')
+   .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+   .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+   .replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')
+   .replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>')
+   .replace(/(<\/(?:h\d|li|blockquote)>)<br>/g,'$1');
+  return t.replace(/\u0000(\d+)\u0000/g,(_,i)=>`<pre>${blocks[i]}</pre>`);
+}
+const LANG={js:'javascript',ts:'typescript',py:'python',sh:'bash',yml:'yaml',html:'xml',htm:'xml',toml:'ini',csv:'plaintext',log:'plaintext'};
+function toggleMd(){
+  const t=$('notepad-content'),m=$('note-md'),show=m.style.display==='none';
+  if(show){
+    const ext=(($('ttl-notes').textContent.match(/\.([A-Za-z0-9]+)$/)||[])[1]||'').toLowerCase(),txt=t.value;
+    if(!ext||/^(md|markdown|txt)$/.test(ext)||!window.hljs||txt.length>200000)m.innerHTML=md(txt);
+    else{const l=LANG[ext]||ext;m.innerHTML=`<pre class="hl"><code class="hljs">${(hljs.getLanguage(l)?hljs.highlight(txt,{language:l,ignoreIllegals:true}):hljs.highlightAuto(txt)).value}</code></pre>`}
+    m.style.display='block';t.style.display='none';
+  }else{m.style.display='none';t.style.display='block'}
+}
+async function loadReadme(files){
+  const box=$('readme');box.innerHTML='';
+  const f=files.find(x=>x.type==='file'&&/^readme(\.(md|markdown|txt))?$/i.test(x.name));
+  if(!f)return;
+  try{
+    const r=await fetch(f.download_url);if(!r.ok)return;
+    const t=await r.text();
+    box.innerHTML=`<div class="rd-h">📖 ${esc(f.name)}</div><div class="md">${/\.txt$/i.test(f.name)?'<pre>'+esc(t)+'</pre>':md(t)}</div>`;
+  }catch(e){}
+}
+async function ghPages(url){
+  let all=[],stale=false,msg='';
+  for(let p=1;p<=5;p++){
+    const r=await ghGet(url+'&page='+p);
+    all=all.concat(r.d);if(r.stale){stale=true;msg=r.msg}
+    if(!Array.isArray(r.d)||r.d.length<100)break;
+  }
+  return{d:all,stale,msg};
+}
+function filterTiles(q){
+  q=q.trim().toLowerCase();
+  document.querySelectorAll('#github-file-list .tile').forEach(t=>{t.style.display=!q||t.dataset.n.includes(q)?'':'none'});
+}
+
+/* ---------- 3D：載入 .glb ---------- */
+async function loadGLB(f){
+  openApp('3d');init3D();
+  try{
+    if(!THREE.GLTFLoader)throw new Error('GLTFLoader 未載入');
+    const r=await fetch(f.download_url);if(!r.ok)throw new Error('HTTP '+r.status);
+    const buf=await r.arrayBuffer();
+    new THREE.GLTFLoader().parse(buf,'',g=>{
+      const o=g.scene,box=new THREE.Box3().setFromObject(o),ctr=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3());
+      o.position.sub(ctr);const grp=new THREE.Group();grp.add(o);grp.scale.setScalar(2.6/(Math.max(sz.x,sz.y,sz.z)||1));
+      if(holoMesh)scene.remove(holoMesh);holoMesh=grp;scene.add(grp);
+      $('ttl-3d').textContent=f.name;notify('已載入 3D 模型：'+f.name);
+    },err=>notify('3D 模型解析失敗：'+((err&&err.message)||err)));
+  }catch(e){notify('載入 3D 模型失敗：'+e.message)}
+}
+
+/* ---------- 小工具：計算機、世界時鐘 ---------- */
+let expr='',tTab='calc';
+const WC=[['台北','Asia/Taipei'],['東京','Asia/Tokyo'],['倫敦','Europe/London'],['紐約','America/New_York'],['洛杉磯','America/Los_Angeles']];
+function toolTab(t){
+  tTab=t;$('tb-calc').classList.toggle('on',t==='calc');$('tb-clock').classList.toggle('on',t==='clock');
+  const b=$('tool-body');
+  if(t==='calc'){
+    b.innerHTML=`<div class="calc-d" id="calc-d">${esc(expr||'0')}</div><div class="calc-g">${['C','(',')','÷','7','8','9','×','4','5','6','−','1','2','3','+','0','.','⌫','='].map(k=>`<button class="${'÷×−+='.includes(k)?'op':''}" onclick="calcKey('${k}')">${k}</button>`).join('')}</div>`;
+  }else{b.innerHTML='<div id="wc"></div>';tickClock()}
+}
+function calcKey(k){
+  if(k==='C')expr='';
+  else if(k==='⌫')expr=expr.slice(0,-1);
+  else if(k==='='){
+    try{
+      const e=expr.replace(/÷/g,'/').replace(/×/g,'*').replace(/−/g,'-');
+      if(!/^[0-9+\-*\/.() ]+$/.test(e))throw 0;
+      const v=Function('"use strict";return ('+e+')')();
+      if(!isFinite(v))throw 0;
+      expr=String(Number(v.toPrecision(12)));
+    }catch(x){expr='';$('calc-d').textContent='錯誤';return}
+  }else expr+=k;
+  $('calc-d').textContent=expr||'0';
+}
+function tickClock(){
+  const w=$('wc');if(!w)return;
+  w.innerHTML=WC.map(([n,z])=>`<div class="wcr"><span>${n}</span><b>${new Date().toLocaleTimeString('zh-TW',{timeZone:z,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})}</b></div>`).join('');
+}
+
+/* ---------- 通知中心 ---------- */
+let notes=[],unread=0;
+try{notes=JSON.parse(localStorage.getItem('gd_nc')||'[]')}catch(e){}
+function notify(t){
+  notes.unshift({t,at:Date.now()});notes=notes.slice(0,30);unread++;
+  try{localStorage.setItem('gd_nc',JSON.stringify(notes))}catch(e){}
+  renderBadge();if($('nc').style.display==='block')renderNC();
+}
+function renderBadge(){const b=$('badge');b.textContent=unread;b.style.display=unread?'block':'none'}
+function toggleNC(){const p=$('nc'),on=p.style.display!=='block';p.style.display=on?'block':'none';if(on){unread=0;renderBadge();renderNC()}}
+function clearNC(){notes=[];try{localStorage.removeItem('gd_nc')}catch(e){}renderNC()}
+function renderNC(){
+  $('nc').innerHTML=`<div class="ncH"><b>通知中心</b><button onclick="clearNC()">清除全部</button></div>`+
+    (notes.length?notes.map(n=>`<div class="nci"><small>${new Date(n.at).toLocaleTimeString('zh-TW',{hour12:false})}</small><div>${esc(n.t)}</div></div>`).join(''):'<div class="nci" style="color:#777">沒有通知</div>');
+}
+
+/* ---------- 時鐘與啟動 ---------- */
+function tick(){tickClock();
+  const n=new Date();
+  $('clock').textContent=n.toLocaleString('zh-TW',{month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+  $('wdate').textContent=n.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+tick();setInterval(tick,1000);
+try{const n=localStorage.getItem('note_local');if(n)$('notepad-content').value=n}catch(e){}
+{const sv=cfg.dock;if(Array.isArray(sv)&&sv.length===DOCK.length&&DOCK.every(k=>sv.includes(k)))DOCK=sv.slice();}
+if(cfg.user)GITHUB_USER=cfg.user;
+applyCfg();buildDock();renderWidget();renderBadge();
+if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(()=>{});
+window.onload=()=>{try{if(cfg.gOn)initCamera();else setGesture(false)}catch(e){gStatus('✋ 相機無法啟用');console.warn(e)}};
+</script>
+</body>
+</html>
